@@ -2,7 +2,7 @@
 `include "tools/adder.vh"
 `include "tools/right_shifter.vh"
 
-module alu (
+module ALU (
     input  wire [`ALU_OP_WIDTH-1:0] operation,
     input  wire [             31:0] operand1,
     input  wire [             31:0] operand2,

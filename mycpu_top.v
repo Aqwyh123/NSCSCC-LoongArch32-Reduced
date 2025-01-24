@@ -246,7 +246,7 @@ module mycpu_top (
 
     assign rf_raddr1 = rj;
     assign rf_raddr2 = src_reg_is_rd ? rd : rk;
-    regfile u_regfile (
+    regfile __regfile (
         .clk   (clk),
         .raddr1(rf_raddr1),
         .rdata1(rf_rdata1),
@@ -274,7 +274,7 @@ module mycpu_top (
     assign alu_src1 = src1_is_pc ? pc[31:0] : rj_value;
     assign alu_src2 = src2_is_imm ? imm : rkd_value;
 
-    alu u_alu (
+    ALU alu (
         .operation(alu_op),
         .operand1 (alu_src1),
         .operand2 (alu_src2),
