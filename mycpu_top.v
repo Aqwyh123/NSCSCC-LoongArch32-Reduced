@@ -1,3 +1,6 @@
+`include "macros.vh"
+`include "tools/decoder.vh"
+
 module mycpu_top (
     input  wire        clk,
     input  wire        resetn,
@@ -142,19 +145,31 @@ module mycpu_top (
     assign i16             = inst[25:10];
     assign i26             = {inst[9:0], inst[25:10]};
 
-    decoder_6_64 u_dec0 (
+    decoder #(
+        .IN_WIDTH (6),
+        .OUT_WIDTH(64)
+    ) decoder_6_64 (
         .in (op_31_26),
         .out(op_31_26_d)
     );
-    decoder_4_16 u_dec1 (
+    decoder #(
+        .IN_WIDTH (4),
+        .OUT_WIDTH(16)
+    ) decoder_4_16 (
         .in (op_25_22),
         .out(op_25_22_d)
     );
-    decoder_2_4 u_dec2 (
+    decoder #(
+        .IN_WIDTH (2),
+        .OUT_WIDTH(4)
+    ) decoder_2_4 (
         .in (op_21_20),
         .out(op_21_20_d)
     );
-    decoder_5_32 u_dec3 (
+    decoder #(
+        .IN_WIDTH (5),
+        .OUT_WIDTH(32)
+    ) decoder_5_32 (
         .in (op_19_15),
         .out(op_19_15_d)
     );
@@ -260,10 +275,10 @@ module mycpu_top (
     assign alu_src2 = src2_is_imm ? imm : rkd_value;
 
     alu u_alu (
-        .alu_op    (alu_op),
-        .alu_src1  (alu_src1),
-        .alu_src2  (alu_src2),
-        .alu_result(alu_result)
+        .operation(alu_op),
+        .operand1 (alu_src1),
+        .operand2 (alu_src2),
+        .result   (alu_result)
     );
 
     assign data_sram_we      = mem_we && valid;

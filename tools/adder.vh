@@ -1,0 +1,17 @@
+`ifndef ADDER_V
+`define ADDER_V
+`include "../macros.vh"
+
+module adder #(
+    parameter integer WIDTH = 32
+) (
+    input  wire [WIDTH-1:0] addend1,
+    input  wire [WIDTH-1:0] addend2,
+    input  wire             cin,
+    output wire [WIDTH-1:0] sum,
+    output wire             cout
+);
+    assign {cout, sum} = addend1 + addend2 + cin;
+endmodule
+
+`endif
