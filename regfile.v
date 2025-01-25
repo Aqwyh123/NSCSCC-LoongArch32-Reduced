@@ -3,27 +3,23 @@
 module regfile (
     input  wire        clk,
     // READ PORT 1
-    input  wire [ 4:0] raddr1,
-    output wire [31:0] rdata1,
+    input  wire [ 4:0] read_num1,
+    output wire [31:0] read_data1,
     // READ PORT 2
-    input  wire [ 4:0] raddr2,
-    output wire [31:0] rdata2,
+    input  wire [ 4:0] read_num2,
+    output wire [31:0] read_data2,
     // WRITE PORT
-    input  wire        we,      //write enable, HIGH valid
-    input  wire [ 4:0] waddr,
-    input  wire [31:0] wdata
+    input  wire        write_enable,  // HIGH valid
+    input  wire [ 4:0] write_num,
+    input  wire [31:0] write_data
 );
     reg [31:0] rf[31:0];
 
-    //WRITE
     always @(posedge clk) begin
-        if (we & |waddr) rf[waddr] <= wdata;
+        if (write_enable) rf[write_num] <= write_data;
     end
 
-    //READ OUT 1
-    assign rdata1 = rf[raddr1];
-
-    //READ OUT 2
-    assign rdata2 = rf[raddr2];
+    assign read_data1 = |read_num1 ? rf[read_num1] : 32'h0;
+    assign read_data2 = |read_num2 ? rf[read_num2] : 32'h0;
 
 endmodule

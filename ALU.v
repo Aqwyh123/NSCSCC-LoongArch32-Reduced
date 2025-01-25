@@ -8,7 +8,6 @@ module ALU (
     input  wire [             31:0] operand2,
     output wire [             31:0] result
 );
-
     wire        op_add = operation[`ALU_OP_ADD];  //add operation
     wire        op_sub = operation[`ALU_OP_SUB];  //sub operation
     wire        op_slt = operation[`ALU_OP_SLT];  //signed compared and set less than
@@ -60,7 +59,7 @@ module ALU (
                             | ((operand1[31] ~^ operand2[31]) & adder_result[31]);
 
     // SLTU
-    // operand1 - operand2 overflow -> result = 1
+    // operand1 - operand2 overflow -> result = 0
     assign sltu_result[31:1] = 31'b0;
     assign sltu_result[0] = ~adder_cout;
 

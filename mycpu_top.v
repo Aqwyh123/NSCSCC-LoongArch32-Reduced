@@ -1,4 +1,5 @@
 `include "macros.vh"
+`include "tools/adder.vh"
 `include "tools/decoder.vh"
 
 module mycpu_top (
@@ -32,270 +33,157 @@ module mycpu_top (
         end
     end
 
-    wire [31:0] seq_pc;
-    wire [31:0] nextpc;
-    wire        br_taken;
-    wire [31:0] br_target;
+    reg [31:0] PC;
+    wire [31:0] next_PC;
+    wire taken;
+
     wire [31:0] inst;
-    reg  [31:0] pc;
+    wire [`BRANCH_WIDTH-1:0] branch;
+    wire branch_reverse;
+    wire jump;
+    wire [`IMM_SRC_WIDTH-1:0] imm_src;
+    wire [`OFFS_SRC_WIDTH-1:0] offs_src;
+    wire ALU_src1_is_PC;
+    wire ALU_src2_is_imm;
+    wire [`ALU_OP_WIDTH-1:0] ALU_operation;
+    wire GPR_read_src2_is_rd;
+    wire GPR_write_src_is_MEM;
+    wire GPR_write_dst_is_r1;
+    wire GPR_write;
+    wire MEM_write;
 
-    wire [11:0] alu_op;
-    wire        load_op;
-    wire        src1_is_pc;
-    wire        src2_is_imm;
-    wire        res_from_mem;
-    wire        dst_is_r1;
-    wire        gr_we;
-    wire        mem_we;
-    wire        src_reg_is_rd;
-    wire [ 4:0] dest;
-    wire [31:0] rj_value;
-    wire [31:0] rkd_value;
+    wire [11:0] i12 = inst[`I12_MSB:`I12_LSB];
+    wire [13:0] i14 = inst[`I14_MSB:`I14_LSB];
+    wire [19:0] i20 = inst[`I20_MSB:`I20_LSB];
     wire [31:0] imm;
-    wire [31:0] br_offs;
-    wire [31:0] jirl_offs;
 
-    wire [ 5:0] op_31_26;
-    wire [ 3:0] op_25_22;
-    wire [ 1:0] op_21_20;
-    wire [ 4:0] op_19_15;
-    wire [ 4:0] rd;
-    wire [ 4:0] rj;
-    wire [ 4:0] rk;
-    wire [11:0] i12;
-    wire [19:0] i20;
-    wire [15:0] i16;
-    wire [25:0] i26;
+    wire [15:0] o16 = inst[`O16_MSB:`O16_LSB];
+    wire [20:0] o21 = {inst[`O21_HIGH_MSB:`O21_HIGH_LSB], inst[`O21_LOW_MSB:`O21_LOW_LSB]};
+    wire [25:0] o26 = {inst[`O26_HIGH_MSB:`O26_HIGH_LSB], inst[`O26_LOW_MSB:`O26_LOW_LSB]};
+    wire [31:0] offs;
 
-    wire [63:0] op_31_26_d;
-    wire [15:0] op_25_22_d;
-    wire [ 3:0] op_21_20_d;
-    wire [31:0] op_19_15_d;
+    wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
+    wire [4:0] rj = inst[`RJ_MSB:`RJ_LSB];
+    wire [4:0] rk = inst[`RK_MSB:`RK_LSB];
 
-    wire        inst_add_w;
-    wire        inst_sub_w;
-    wire        inst_slt;
-    wire        inst_sltu;
-    wire        inst_nor;
-    wire        inst_and;
-    wire        inst_or;
-    wire        inst_xor;
-    wire        inst_slli_w;
-    wire        inst_srli_w;
-    wire        inst_srai_w;
-    wire        inst_addi_w;
-    wire        inst_ld_w;
-    wire        inst_st_w;
-    wire        inst_jirl;
-    wire        inst_b;
-    wire        inst_bl;
-    wire        inst_beq;
-    wire        inst_bne;
-    wire        inst_lu12i_w;
+    wire [4:0] GPR_read_num1;
+    wire [31:0] GPR_read_data1;
+    wire [4:0] GPR_read_num2;
+    wire [31:0] GPR_read_data2;
+    wire GPR_write_enable;
+    wire [4:0] GPR_write_num;
+    wire [31:0] GPR_write_data;
 
-    wire        need_ui5;
-    wire        need_si12;
-    wire        need_si16;
-    wire        need_si20;
-    wire        need_si26;
-    wire        src2_is_4;
+    wire [31:0] rj_data;
+    wire [31:0] rkd_data;
 
-    wire [ 4:0] rf_raddr1;
-    wire [31:0] rf_rdata1;
-    wire [ 4:0] rf_raddr2;
-    wire [31:0] rf_rdata2;
-    wire        rf_we;
-    wire [ 4:0] rf_waddr;
-    wire [31:0] rf_wdata;
+    wire rj_eq_rd;
+    // wire                   rj_lt_rd;
+    // wire                   rj_ltu_rd;
 
-    wire [31:0] alu_src1;
-    wire [31:0] alu_src2;
-    wire [31:0] alu_result;
+    wire [31:0] ALU_operand1;
+    wire [31:0] ALU_operand2;
+    wire [31:0] ALU_result;
 
-    wire [31:0] mem_result;
-    wire [31:0] final_result;
-
-    assign seq_pc = pc + 3'h4;
-    assign nextpc = br_taken ? br_target : seq_pc;
+    wire [31:0] MEM_result;
 
     always @(posedge clk) begin
         if (reset) begin
-            pc <= 32'h1bfffffc;  //trick: to make nextpc be 0x1c000000 during reset
+            PC <= `PC_INIT;
         end else begin
-            pc <= nextpc;
+            PC <= next_PC;
         end
     end
 
     assign inst_sram_we    = 1'b0;
-    assign inst_sram_addr  = pc;
+    assign inst_sram_addr  = PC;
     assign inst_sram_wdata = 32'b0;
     assign inst            = inst_sram_rdata;
 
-    assign op_31_26        = inst[31:26];
-    assign op_25_22        = inst[25:22];
-    assign op_21_20        = inst[21:20];
-    assign op_19_15        = inst[19:15];
-
-    assign rd              = inst[4:0];
-    assign rj              = inst[9:5];
-    assign rk              = inst[14:10];
-
-    assign i12             = inst[21:10];
-    assign i20             = inst[24:5];
-    assign i16             = inst[25:10];
-    assign i26             = {inst[9:0], inst[25:10]};
-
-    decoder #(
-        .IN_WIDTH (6),
-        .OUT_WIDTH(64)
-    ) decoder_6_64 (
-        .in (op_31_26),
-        .out(op_31_26_d)
-    );
-    decoder #(
-        .IN_WIDTH (4),
-        .OUT_WIDTH(16)
-    ) decoder_4_16 (
-        .in (op_25_22),
-        .out(op_25_22_d)
-    );
-    decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
-    ) decoder_2_4 (
-        .in (op_21_20),
-        .out(op_21_20_d)
-    );
-    decoder #(
-        .IN_WIDTH (5),
-        .OUT_WIDTH(32)
-    ) decoder_5_32 (
-        .in (op_19_15),
-        .out(op_19_15_d)
+    ID id (
+        .instruction         (inst),
+        .branch              (branch),
+        .branch_reverse      (branch_reverse),
+        .jump                (jump),
+        .imm_src             (imm_src),
+        .offs_src            (offs_src),
+        .ALU_src1_is_PC      (ALU_src1_is_PC),
+        .ALU_src2_is_imm     (ALU_src2_is_imm),
+        .ALU_operation       (ALU_operation),
+        .GPR_read_src2_is_rd (GPR_read_src2_is_rd),
+        .GPR_write_src_is_MEM(GPR_write_src_is_MEM),
+        .GPR_write_dst_is_r1 (GPR_write_dst_is_r1),
+        .MEM_write           (MEM_write),
+        .GPR_write           (GPR_write)
     );
 
-    assign inst_add_w = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
-    assign inst_sub_w = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
-    assign inst_slt = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h04];
-    assign inst_sltu = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h05];
-    assign inst_nor = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h08];
-    assign inst_and = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h09];
-    assign inst_or = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0a];
-    assign inst_xor = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0b];
-    assign inst_slli_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h01];
-    assign inst_srli_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h09];
-    assign inst_srai_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
-    assign inst_addi_w = op_31_26_d[6'h00] & op_25_22_d[4'ha];
-    assign inst_ld_w = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
-    assign inst_st_w = op_31_26_d[6'h0a] & op_25_22_d[4'h6];
-    assign inst_jirl = op_31_26_d[6'h13];
-    assign inst_b = op_31_26_d[6'h14];
-    assign inst_bl = op_31_26_d[6'h15];
-    assign inst_beq = op_31_26_d[6'h16];
-    assign inst_bne = op_31_26_d[6'h17];
-    assign inst_lu12i_w = op_31_26_d[6'h05] & ~inst[25];
+    // default : ui12 / ui5
+    assign imm = imm_src[`IMM_SRC_4] ? 32'h4 :
+                 imm_src[`IMM_SRC_SI12] ? {{20{i12[11]}}, i12} :
+                 imm_src[`IMM_SRC_SI14] ? {{18{i14[13]}}, i14} :
+                 imm_src[`IMM_SRC_SI20] ? {i20, 12'b0} :
+                 {20'b0, i12};
 
-    assign alu_op[0] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w | inst_jirl | inst_bl;
-    assign alu_op[1] = inst_sub_w;
-    assign alu_op[2] = inst_slt;
-    assign alu_op[3] = inst_sltu;
-    assign alu_op[4] = inst_and;
-    assign alu_op[5] = inst_nor;
-    assign alu_op[6] = inst_or;
-    assign alu_op[7] = inst_xor;
-    assign alu_op[8] = inst_slli_w;
-    assign alu_op[9] = inst_srli_w;
-    assign alu_op[10] = inst_srai_w;
-    assign alu_op[11] = inst_lu12i_w;
+    // default : offs21
+    assign offs = offs_src[`OFFS_SRC_16] ? {{14{o16[15]}}, o16, 2'b0} :
+                  offs_src[`OFFS_SRC_26] ? {{4{o26[25]}}, o26, 2'b0} :
+                  {{9{o21[20]}},o21,2'b0};
 
-    assign load_op = inst_ld_w;
+    assign GPR_read_num1 = rj;
+    assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
+    assign GPR_write_enable = GPR_write & valid;
+    assign GPR_write_num = GPR_write_dst_is_r1 ? 5'd1 : rd;
+    assign GPR_write_data = GPR_write_src_is_MEM ? MEM_result : ALU_result;
 
-    assign need_ui5 = inst_slli_w | inst_srli_w | inst_srai_w;
-    assign need_si12 = inst_addi_w | inst_ld_w | inst_st_w;
-    assign need_si16 = inst_jirl | inst_beq | inst_bne;
-    assign need_si20 = inst_lu12i_w;
-    assign need_si26 = inst_b | inst_bl;
-    assign src2_is_4 = inst_jirl | inst_bl;
-
-    assign imm = src2_is_4 ? 32'h4 : need_si20 ? {i20[19:0], 12'b0} :
-        /*need_ui5 || need_si12*/{{20{i12[11]}}, i12[11:0]};
-
-    assign br_offs = need_si26 ? {{4{i26[25]}}, i26[25:0], 2'b0} : {{14{i16[15]}}, i16[15:0], 2'b0};
-
-    assign jirl_offs = {{14{i16[15]}}, i16[15:0], 2'b0};
-
-    assign src_reg_is_rd = inst_beq | inst_bne | inst_st_w;
-
-    assign src1_is_pc = inst_jirl | inst_bl;
-
-    assign src2_is_imm   = inst_slli_w |
-                       inst_srli_w |
-                       inst_srai_w |
-                       inst_addi_w |
-                       inst_ld_w   |
-                       inst_st_w   |
-                       inst_lu12i_w|
-                       inst_jirl   |
-                       inst_bl     ;
-
-    assign res_from_mem = inst_ld_w;
-    assign dst_is_r1 = inst_bl;
-    assign gr_we = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b;
-    assign mem_we = inst_st_w;
-    assign dest = dst_is_r1 ? 5'd1 : rd;
-
-    assign rf_raddr1 = rj;
-    assign rf_raddr2 = src_reg_is_rd ? rd : rk;
-    regfile __regfile (
-        .clk   (clk),
-        .raddr1(rf_raddr1),
-        .rdata1(rf_rdata1),
-        .raddr2(rf_raddr2),
-        .rdata2(rf_rdata2),
-        .we    (rf_we),
-        .waddr (rf_waddr),
-        .wdata (rf_wdata)
+    regfile gpr_regfile (
+        .clk         (clk),
+        .read_num1   (GPR_read_num1),
+        .read_data1  (GPR_read_data1),
+        .read_num2   (GPR_read_num2),
+        .read_data2  (GPR_read_data2),
+        .write_enable(GPR_write_enable),
+        .write_num   (GPR_write_num),
+        .write_data  (GPR_write_data)
     );
 
-    assign rj_value  = rf_rdata1;
-    assign rkd_value = rf_rdata2;
+    assign rj_data = GPR_read_data1;
+    assign rkd_data = GPR_read_data2;
 
-    wire rj_eq_rd;
-    assign rj_eq_rd = (rj_value == rkd_value);
-    assign br_taken = (   inst_beq  &&  rj_eq_rd
-                   || inst_bne  && !rj_eq_rd
-                   || inst_jirl
-                   || inst_bl
-                   || inst_b
-                  ) && valid;
-    assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (pc + br_offs) :
-        /*inst_jirl*/ (rj_value + jirl_offs);
+    assign rj_eq_rd = rj_data == rkd_data;
+    // assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
+    // assign rj_ltu_rd = rj_data < rkd_data;
+    assign taken = ( branch[`BRANCH_EQ] & ~branch_reverse & rj_eq_rd
+                   | branch[`BRANCH_EQ] & branch_reverse & ~rj_eq_rd
+                   | jump | branch[`BRANCH_UNCOND]
+                   ) & valid;
 
-    assign alu_src1 = src1_is_pc ? pc[31:0] : rj_value;
-    assign alu_src2 = src2_is_imm ? imm : rkd_value;
+    adder #(
+        .WIDTH(32)
+    ) pc_adder (
+        .addend1(jump ? rj_data : PC),
+        .addend2(taken ? offs : 32'h4),
+        .cin    (1'b0),
+        .sum    (next_PC)
+    );
+
+    assign ALU_operand1 = ALU_src1_is_PC ? PC : rj_data;
+    assign ALU_operand2 = ALU_src2_is_imm ? imm : rkd_data;
 
     ALU alu (
-        .operation(alu_op),
-        .operand1 (alu_src1),
-        .operand2 (alu_src2),
-        .result   (alu_result)
+        .operation(ALU_operation),
+        .operand1 (ALU_operand1),
+        .operand2 (ALU_operand2),
+        .result   (ALU_result)
     );
 
-    assign data_sram_we      = mem_we && valid;
-    assign data_sram_addr    = alu_result;
-    assign data_sram_wdata   = rkd_value;
+    assign data_sram_we      = MEM_write & valid;
+    assign data_sram_addr    = ALU_result;
+    assign data_sram_wdata   = rkd_data;
+    assign MEM_result        = data_sram_rdata;
 
-    assign mem_result        = data_sram_rdata;
-    assign final_result      = res_from_mem ? mem_result : alu_result;
-
-    assign rf_we             = gr_we && valid;
-    assign rf_waddr          = dest;
-    assign rf_wdata          = final_result;
-
-    // debug info generate
-    assign debug_wb_pc       = pc;
-    assign debug_wb_rf_we    = {4{rf_we}};
-    assign debug_wb_rf_wnum  = dest;
-    assign debug_wb_rf_wdata = final_result;
+    assign debug_wb_pc       = PC;
+    assign debug_wb_rf_we    = {4{GPR_write_enable}};
+    assign debug_wb_rf_wnum  = GPR_write_num;
+    assign debug_wb_rf_wdata = GPR_write_data;
 
 endmodule
