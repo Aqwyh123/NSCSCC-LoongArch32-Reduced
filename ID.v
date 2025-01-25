@@ -17,7 +17,7 @@ module ID (
     output wire                       GPR_write
 );
     wire [ 5:0] instr_31_26 = instruction[31:26];
-    wire [ 3:0] instr_25_24 = instruction[25:24];
+    wire [ 1:0] instr_25_24 = instruction[25:24];
     wire [ 1:0] instr_23_22 = instruction[23:22];
     wire [ 1:0] instr_21_20 = instruction[21:20];
     wire [ 4:0] instr_19_15 = instruction[19:15];

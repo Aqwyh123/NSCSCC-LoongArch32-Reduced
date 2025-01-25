@@ -34,6 +34,8 @@ module mycpu_top (
     end
 
     reg [31:0] PC;
+    wire [31:0] seq_PC;
+    wire [31:0] target_PC;
     wire [31:0] next_PC;
     wire taken;
 
@@ -84,6 +86,7 @@ module mycpu_top (
     wire [31:0] ALU_operand1;
     wire [31:0] ALU_operand2;
     wire [31:0] ALU_result;
+    wire [31:0] MEM_addr;
 
     wire [31:0] MEM_result;
 
@@ -159,12 +162,25 @@ module mycpu_top (
 
     adder #(
         .WIDTH(32)
-    ) pc_adder (
-        .addend1(jump ? rj_data : PC),
-        .addend2(taken ? offs : 32'h4),
+    ) seq_adder (
+        .addend1(PC),
+        .addend2(32'h4),
         .cin    (1'b0),
-        .sum    (next_PC)
+        .sum    (seq_PC),
+        .cout   ()
     );
+
+    adder #(
+        .WIDTH(32)
+    ) target_adder (
+        .addend1(jump ? rj_data : PC),
+        .addend2(offs),
+        .cin    (1'b0),
+        .sum    (target_PC),
+        .cout   ()
+    );
+
+    assign next_PC      = taken ? target_PC : seq_PC;
 
     assign ALU_operand1 = ALU_src1_is_PC ? PC : rj_data;
     assign ALU_operand2 = ALU_src2_is_imm ? imm : rkd_data;
@@ -173,11 +189,12 @@ module mycpu_top (
         .operation(ALU_operation),
         .operand1 (ALU_operand1),
         .operand2 (ALU_operand2),
-        .result   (ALU_result)
+        .result   (ALU_result),
+        .MEM_addr (MEM_addr)
     );
 
     assign data_sram_we      = MEM_write & valid;
-    assign data_sram_addr    = ALU_result;
+    assign data_sram_addr    = MEM_addr;
     assign data_sram_wdata   = rkd_data;
     assign MEM_result        = data_sram_rdata;
 
