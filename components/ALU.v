@@ -1,6 +1,6 @@
-`include "macros.vh"
-`include "tools/adder.vh"
-`include "tools/right_shifter.vh"
+`include "../macros.vh"
+`include "../tools/adder.v"
+`include "../tools/right_shifter.v"
 
 module ALU (
     input  wire [`ALU_OP_WIDTH-1:0] operation,

@@ -1,4 +1,5 @@
-`include "macros.vh"
+`include "../macros.vh"
+`include "../tools/decoder.v"
 
 module ID (
     input  wire [               31:0] instruction,

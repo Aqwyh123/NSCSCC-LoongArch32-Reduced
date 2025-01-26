@@ -1,6 +1,7 @@
 `include "macros.vh"
-`include "tools/adder.vh"
-`include "tools/decoder.vh"
+`include "components/ID.v"
+`include "components/regfile.v"
+`include "components/ALU.v"
 
 module mycpu_top (
     input  wire        clk,

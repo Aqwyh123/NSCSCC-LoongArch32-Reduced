@@ -1,4 +1,4 @@
-`include "macros.vh"
+`include "../macros.vh"
 
 module regfile (
     input  wire        clk,
