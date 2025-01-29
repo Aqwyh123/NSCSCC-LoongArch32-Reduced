@@ -108,7 +108,6 @@ module mycpu_top (
     wire [                31:0] MEM_ALU_result;
     wire [                31:0] MEM_MEM_read_data;
 
-
     wire                        WB_busy;
     wire                        WB_valid;
     wire                        WB_ready;
