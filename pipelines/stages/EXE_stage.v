@@ -3,12 +3,9 @@
 module EXE_stage (
     output wire                        busy,
     input  wire                        valid,
-    input  wire                        ALU_src1_is_PC,
-    input  wire                        ALU_src2_is_imm,
+    input  wire [                31:0] ALU_operand1,
+    input  wire [                31:0] ALU_operand2,
     input  wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
-    input  wire [                31:0] PC,
-    input  wire [                31:0] imm,
-    input  wire [                31:0] rj_data,
     input  wire [                31:0] rkd_data,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
@@ -19,12 +16,6 @@ module EXE_stage (
     output wire [                31:0] MEM_write_data
 );
     assign busy = 1'b0;
-
-    wire [31:0] ALU_operand1;
-    wire [31:0] ALU_operand2;
-
-    assign ALU_operand1 = ALU_src1_is_PC ? PC : rj_data;
-    assign ALU_operand2 = ALU_src2_is_imm ? imm : rkd_data;
 
     ALU alu (
         .operation(ALU_operation),

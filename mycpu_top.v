@@ -52,8 +52,6 @@ module mycpu_top (
 
     wire [                31:0] ID_PC;
     wire [                31:0] ID_inst;
-    wire                        ID_ALU_src1_is_PC;
-    wire                        ID_ALU_src2_is_imm;
     wire [   `ALU_OP_WIDTH-1:0] ID_ALU_operation;
     wire [                 4:0] ID_GPR_read_num1;
     wire [                31:0] ID_GPR_read_data1;
@@ -66,8 +64,8 @@ module mycpu_top (
     wire [                 4:0] ID_GPR_write_num;
     wire                        ID_taken;
     wire [                31:0] ID_target_PC;
-    wire [                31:0] ID_imm;
-    wire [                31:0] ID_rj_data;
+    wire [                31:0] ID_ALU_operand1;
+    wire [                31:0] ID_ALU_operand2;
     wire [                31:0] ID_rkd_data;
 
     wire                        EXE_busy;
@@ -76,11 +74,9 @@ module mycpu_top (
     wire                        EXE_to_MEM_valid;
 
     wire [                31:0] EXE_PC;
-    wire                        EXE_ALU_src1_is_PC;
-    wire                        EXE_ALU_src2_is_imm;
+    wire [                31:0] EXE_ALU_operand1;
+    wire [                31:0] EXE_ALU_operand2;
     wire [   `ALU_OP_WIDTH-1:0] EXE_ALU_operation;
-    wire [                31:0] EXE_imm;
-    wire [                31:0] EXE_rj_data;
     wire [                31:0] EXE_rkd_data;
     wire [ `MEM_READ_WIDTH-1:0] EXE_MEM_read;
     wire [`MEM_WRITE_WIDTH-1:0] EXE_MEM_write;
@@ -174,8 +170,6 @@ module mycpu_top (
         .valid               (ID_valid),
         .PC                  (ID_PC),
         .inst                (ID_inst),
-        .ALU_src1_is_PC      (ID_ALU_src1_is_PC),
-        .ALU_src2_is_imm     (ID_ALU_src2_is_imm),
         .ALU_operation       (ID_ALU_operation),
         .GPR_write_src_is_MEM(ID_GPR_write_src_is_MEM),
         .MEM_read            (ID_MEM_read),
@@ -188,8 +182,8 @@ module mycpu_top (
         .GPR_write_num       (ID_GPR_write_num),
         .taken               (ID_taken),
         .target_PC           (ID_target_PC),
-        .imm                 (ID_imm),
-        .rj_data             (ID_rj_data),
+        .ALU_operand1        (ID_ALU_operand1),
+        .ALU_operand2        (ID_ALU_operand2),
         .rkd_data            (ID_rkd_data)
     );
 
@@ -214,11 +208,9 @@ module mycpu_top (
         .EXE_ready               (EXE_ready),
         .EXE_to_MEM_valid        (EXE_to_MEM_valid),
         .ID_PC                   (ID_PC),
-        .ID_ALU_src1_is_PC       (ID_ALU_src1_is_PC),
-        .ID_ALU_src2_is_imm      (ID_ALU_src2_is_imm),
+        .ID_ALU_operand1         (ID_ALU_operand1),
+        .ID_ALU_operand2         (ID_ALU_operand2),
         .ID_ALU_operation        (ID_ALU_operation),
-        .ID_imm                  (ID_imm),
-        .ID_rj_data              (ID_rj_data),
         .ID_rkd_data             (ID_rkd_data),
         .ID_MEM_read             (ID_MEM_read),
         .ID_MEM_write            (ID_MEM_write),
@@ -226,11 +218,9 @@ module mycpu_top (
         .ID_GPR_write_num        (ID_GPR_write_num),
         .ID_GPR_write_src_is_MEM (ID_GPR_write_src_is_MEM),
         .EXE_PC                  (EXE_PC),
-        .EXE_ALU_src1_is_PC      (EXE_ALU_src1_is_PC),
-        .EXE_ALU_src2_is_imm     (EXE_ALU_src2_is_imm),
+        .EXE_ALU_operand1        (EXE_ALU_operand1),
+        .EXE_ALU_operand2        (EXE_ALU_operand2),
         .EXE_ALU_operation       (EXE_ALU_operation),
-        .EXE_imm                 (EXE_imm),
-        .EXE_rj_data             (EXE_rj_data),
         .EXE_rkd_data            (EXE_rkd_data),
         .EXE_MEM_read            (EXE_MEM_read),
         .EXE_MEM_write           (EXE_MEM_write),
@@ -242,12 +232,9 @@ module mycpu_top (
     EXE_stage exe_stage (
         .busy            (EXE_busy),
         .valid           (EXE_valid),
-        .ALU_src1_is_PC  (EXE_ALU_src1_is_PC),
-        .ALU_src2_is_imm (EXE_ALU_src2_is_imm),
+        .ALU_operand1    (EXE_ALU_operand1),
+        .ALU_operand2    (EXE_ALU_operand2),
         .ALU_operation   (EXE_ALU_operation),
-        .PC              (EXE_PC),
-        .imm             (EXE_imm),
-        .rj_data         (EXE_rj_data),
         .rkd_data        (EXE_rkd_data),
         .MEM_read        (EXE_MEM_read),
         .MEM_write       (EXE_MEM_write),

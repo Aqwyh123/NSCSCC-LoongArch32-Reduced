@@ -6,8 +6,6 @@ module ID_stage (
     input  wire                        valid,
     input  wire [                31:0] PC,
     input  wire [                31:0] inst,
-    output wire                        ALU_src1_is_PC,
-    output wire                        ALU_src2_is_imm,
     output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
     output wire                        GPR_write_src_is_MEM,
     output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
@@ -20,19 +18,22 @@ module ID_stage (
     output wire [                 4:0] GPR_write_num,
     output wire                        taken,
     output wire [                31:0] target_PC,
-    output wire [                31:0] imm,
-    output wire [                31:0] rj_data,
+    output wire [                31:0] ALU_operand1,
+    output wire [                31:0] ALU_operand2,
     output wire [                31:0] rkd_data
-
 );
     assign busy = 1'b0;
 
     wire jump;
     wire [`BRANCH_WIDTH-1:0] branch;
     wire branch_reverse;
-    wire [`IMM_SRC_WIDTH-1:0] imm_src;
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
+    wire ALU_src1_is_PC;
+    wire [`IMM_SRC_WIDTH-1:0] imm_src;
+    wire ALU_src2_is_imm;
     wire GPR_read_src2_is_rd;
+    wire [31:0] rj_data;
+    wire [31:0] imm;
     wire GPR_write_dst_is_r1;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
@@ -102,6 +103,9 @@ module ID_stage (
                  {32{imm_src[`IMM_SRC_SI12]}} & {{20{i12[11]}}, i12} |
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
+
+    assign ALU_operand1 = ALU_src1_is_PC ? PC : rj_data;
+    assign ALU_operand2 = ALU_src2_is_imm ? imm : rkd_data;
 
     assign GPR_write_num = GPR_write_dst_is_r1 ? 5'd1 : rd;
 endmodule
