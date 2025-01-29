@@ -1,21 +1,23 @@
-`include "../macros.vh"
+`ifndef ID_V
+`define ID_V
 `include "../tools/decoder.v"
 
 module ID (
-    input  wire [               31:0] instruction,
-    output wire [  `BRANCH_WIDTH-1:0] branch,
-    output wire                       branch_reverse,
-    output wire                       jump,
-    output wire [ `IMM_SRC_WIDTH-1:0] imm_src,
-    output wire [`OFFS_SRC_WIDTH-1:0] offs_src,
-    output wire                       ALU_src1_is_PC,        // default : rj
-    output wire                       ALU_src2_is_imm,       // default : rk/rd
-    output wire [  `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire                       GPR_read_src2_is_rd,   // default : rk
-    output wire                       GPR_write_src_is_MEM,  // default : ALU
-    output wire                       GPR_write_dst_is_r1,   // default : rd
-    output wire                       MEM_write,
-    output wire                       GPR_write
+    input  wire [                31:0] instruction,
+    output wire [   `BRANCH_WIDTH-1:0] branch,
+    output wire                        branch_reverse,
+    output wire                        jump,
+    output wire [  `IMM_SRC_WIDTH-1:0] imm_src,
+    output wire [ `OFFS_SRC_WIDTH-1:0] offs_src,
+    output wire                        ALU_src1_is_PC,        // default : rj
+    output wire                        ALU_src2_is_imm,       // default : rk/rd
+    output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                        GPR_read_src2_is_rd,   // default : rk
+    output wire                        GPR_write_dst_is_r1,   // default : rd
+    output wire                        GPR_write_src_is_MEM,  // default : ALU
+    output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
+    output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire                        GPR_write
 );
     wire [ 5:0] instr_31_26 = instruction[31:26];
     wire [ 1:0] instr_25_24 = instruction[25:24];
@@ -127,11 +129,13 @@ module ID (
     assign jump = jirl;
 
     assign imm_src[`IMM_SRC_4] = jirl | bl;
+    assign imm_src[`IMM_SRC_UI12] = slli_w | srli_w | srai_w;  // ui5 = ui12[4:0]
     assign imm_src[`IMM_SRC_SI12] = addi_w | ld_w | st_w;
     assign imm_src[`IMM_SRC_SI14] = 1'b0;
     assign imm_src[`IMM_SRC_SI20] = lu12i_w;
 
     assign offs_src[`OFFS_SRC_16] = jirl | beq | bne;
+    assign offs_src[`OFFS_SRC_21] = 1'b0;
     assign offs_src[`OFFS_SRC_26] = b | bl;
 
     assign ALU_src1_is_PC = jirl | bl;
@@ -151,9 +155,20 @@ module ID (
     assign ALU_operation[`ALU_OP_LUI] = lu12i_w;
 
     assign GPR_read_src2_is_rd = beq | bne | st_w;
-    assign GPR_write_src_is_MEM = ld_w;
-    assign GPR_write_dst_is_r1 = bl;
-    assign MEM_write = st_w;
-    assign GPR_write = ~st_w & ~b & ~beq & ~bne;
 
+    assign MEM_read[`MEM_READ_BYTE] = 1'b0;
+    assign MEM_read[`MEM_READ_HALF] = 1'b0;
+    assign MEM_read[`MEM_READ_WORD] = ld_w;
+    assign MEM_read[`MEM_READ_BYTEU] = 1'b0;
+    assign MEM_read[`MEM_READ_HALFU] = 1'b0;
+
+    assign MEM_write[`MEM_WRITE_BYTE] = 1'b0;
+    assign MEM_write[`MEM_WRITE_HALF] = 1'b0;
+    assign MEM_write[`MEM_WRITE_WORD] = st_w;
+
+    assign GPR_write_dst_is_r1 = bl;
+    assign GPR_write_src_is_MEM = ld_w;
+    assign GPR_write = ~st_w & ~b & ~beq & ~bne;
 endmodule
+
+`endif

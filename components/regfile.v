@@ -1,3 +1,5 @@
+`ifndef REGFILE_V
+`define REGFILE_V
 `include "../macros.vh"
 
 module regfile (
@@ -21,5 +23,6 @@ module regfile (
 
     assign read_data1 = |read_num1 ? rf[read_num1] : 32'h0;
     assign read_data2 = |read_num2 ? rf[read_num2] : 32'h0;
-
 endmodule
+
+`endif

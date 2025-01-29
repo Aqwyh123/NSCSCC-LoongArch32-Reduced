@@ -3,8 +3,7 @@
 
 `default_nettype none
 
-//trick: to make next PC be 0x1c000000 during reset
-`define PC_INIT (32'h1c000000 - 32'h4)
+`define PC_INIT 32'h1c000000
 
 `define RD_MSB 4
 `define RD_LSB 0
@@ -31,19 +30,18 @@
 `define O26_LOW_MSB 25
 `define O26_LOW_LSB 10
 
-// default : ui12
 // ui5 = ui12[4:0]
-// si20 is used to lui12iw
-`define IMM_SRC_WIDTH 4
+`define IMM_SRC_WIDTH 5
 `define IMM_SRC_4 0
-`define IMM_SRC_SI12 1
-`define IMM_SRC_SI14 2
-`define IMM_SRC_SI20 3
+`define IMM_SRC_UI12 1
+`define IMM_SRC_SI12 2
+`define IMM_SRC_SI14 3
+`define IMM_SRC_SI20 4
 
-// default : offs21
-`define OFFS_SRC_WIDTH 2
+`define OFFS_SRC_WIDTH 3
 `define OFFS_SRC_16 0
-`define OFFS_SRC_26 1
+`define OFFS_SRC_21 1
+`define OFFS_SRC_26 2
 
 `define BRANCH_WIDTH 4
 `define BRANCH_UNCOND 0
@@ -64,6 +62,18 @@
 `define ALU_OP_SRL 9
 `define ALU_OP_SRA 10
 `define ALU_OP_LUI 11
+
+`define MEM_READ_WIDTH 5
+`define MEM_READ_BYTE 0
+`define MEM_READ_HALF 1
+`define MEM_READ_WORD 2
+`define MEM_READ_BYTEU 3
+`define MEM_READ_HALFU 4
+
+`define MEM_WRITE_WIDTH 3
+`define MEM_WRITE_BYTE 0
+`define MEM_WRITE_HALF 1
+`define MEM_WRITE_WORD 2
 
 `define ADD_W_31_26 6'b000000
 `define ADD_W_25_24 2'b00

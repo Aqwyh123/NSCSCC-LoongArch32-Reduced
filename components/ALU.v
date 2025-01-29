@@ -1,4 +1,5 @@
-`include "../macros.vh"
+`ifndef ALU_V
+`define ALU_V
 `include "../tools/adder.v"
 `include "../tools/right_shifter.v"
 
@@ -98,5 +99,6 @@ module ALU (
                   | ({32{op_srl|op_sra}} & sr_result);
 
     assign MEM_addr = add_sub_result;
-
 endmodule
+
+`endif
