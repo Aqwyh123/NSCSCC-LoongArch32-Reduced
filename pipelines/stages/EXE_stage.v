@@ -2,7 +2,6 @@
 
 module EXE_stage (
     output wire                        busy,
-    input  wire                        valid,
     input  wire [                31:0] ALU_operand1,
     input  wire [                31:0] ALU_operand2,
     input  wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
@@ -25,7 +24,7 @@ module EXE_stage (
         .MEM_addr (MEM_addr)
     );
 
-    assign MEM_enable       = valid & (|MEM_read | |MEM_write);
-    assign MEM_write_enable = {4{valid & |MEM_write}};
+    assign MEM_enable       = |MEM_read | |MEM_write;
+    assign MEM_write_enable = {4{|MEM_write}};
     assign MEM_write_data   = rkd_data;
 endmodule

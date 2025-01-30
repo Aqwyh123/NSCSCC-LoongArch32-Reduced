@@ -12,6 +12,8 @@ module ID (
     output wire                        ALU_src1_is_PC,        // default : rj
     output wire                        ALU_src2_is_imm,       // default : rk/rd
     output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                        GPR_read1,
+    output wire                        GPR_read2,
     output wire                        GPR_read_src2_is_rd,   // default : rk
     output wire                        GPR_write_dst_is_r1,   // default : rd
     output wire                        GPR_write_src_is_MEM,  // default : ALU
@@ -154,6 +156,8 @@ module ID (
     assign ALU_operation[`ALU_OP_SRA] = srai_w;
     assign ALU_operation[`ALU_OP_LUI] = lu12i_w;
 
+    assign GPR_read1 = ~(st_w | b | bl | lu12i_w);
+    assign GPR_read2 = ~(slli_w | srli_w | srai_w | addi_w | ld_w | jirl | b | bl | lu12i_w);
     assign GPR_read_src2_is_rd = beq | bne | st_w;
 
     assign MEM_read[`MEM_READ_BYTE] = 1'b0;

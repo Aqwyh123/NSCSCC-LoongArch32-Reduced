@@ -2,28 +2,26 @@
 `include "../../components/ID.v"
 
 module ID_stage (
-    output wire                        busy,
-    input  wire                        valid,
     input  wire [                31:0] PC,
     input  wire [                31:0] inst,
     output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
     output wire                        GPR_write_src_is_MEM,
     output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire                        GPR_read1,
+    output wire                        GPR_read2,
     output wire                        GPR_write,
     output wire [                 4:0] GPR_read_num1,
     input  wire [                31:0] GPR_read_data1,
     output wire [                 4:0] GPR_read_num2,
     input  wire [                31:0] GPR_read_data2,
     output wire [                 4:0] GPR_write_num,
-    output wire                        taken,
+    output wire                        bj_taken,
     output wire [                31:0] target_PC,
     output wire [                31:0] ALU_operand1,
     output wire [                31:0] ALU_operand2,
     output wire [                31:0] rkd_data
 );
-    assign busy = 1'b0;
-
     wire jump;
     wire [`BRANCH_WIDTH-1:0] branch;
     wire branch_reverse;
@@ -63,6 +61,8 @@ module ID_stage (
         .ALU_src1_is_PC      (ALU_src1_is_PC),
         .ALU_src2_is_imm     (ALU_src2_is_imm),
         .ALU_operation       (ALU_operation),
+        .GPR_read1           (GPR_read1),
+        .GPR_read2           (GPR_read2),
         .GPR_read_src2_is_rd (GPR_read_src2_is_rd),
         .GPR_write_dst_is_r1 (GPR_write_dst_is_r1),
         .GPR_write_src_is_MEM(GPR_write_src_is_MEM),
@@ -84,8 +84,7 @@ module ID_stage (
                   {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}},o21,2'b0} |
                   {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
-    assign taken = valid & (jump | branch[`BRANCH_UNCOND]
-                                 | branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd));
+    assign bj_taken = jump | branch[`BRANCH_UNCOND] | branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd);
 
     adder #(
         .WIDTH(32)

@@ -32,9 +32,8 @@ module EXE_reg (
     output reg  [                 4:0] EXE_GPR_write_num,
     output reg                         EXE_GPR_write_src_is_MEM
 );
-    wire EXE_done = ~EXE_busy;
-    assign EXE_ready        = ~EXE_valid | (EXE_done & MEM_ready);
-    assign EXE_to_MEM_valid = EXE_valid & EXE_done;
+    assign EXE_ready        = ~EXE_valid | (~EXE_busy & MEM_ready);
+    assign EXE_to_MEM_valid = EXE_valid & ~EXE_busy;
 
     always @(posedge clk) begin
         if (reset) begin

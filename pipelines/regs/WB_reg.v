@@ -22,8 +22,7 @@ module WB_reg (
     output reg  [31:0] WB_ALU_result,
     output reg  [31:0] WB_MEM_read_data
 );
-    wire WB_done = ~WB_busy;
-    assign WB_ready = ~WB_valid | (WB_done & 1'b1);
+    assign WB_ready = ~WB_valid | (~WB_busy & 1'b1);
 
     always @(posedge clk) begin
         if (reset) begin

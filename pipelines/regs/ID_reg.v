@@ -10,15 +10,16 @@ module ID_reg (
     output reg         ID_valid,
     output wire        ID_ready,
     output wire        ID_to_EXE_valid,
+    // control signals
+    input  wire        ID_bj_enable,
     // data signals
     input  wire [31:0] IF_PC,
     input  wire [31:0] IF_inst,
     output reg  [31:0] ID_PC,
     output reg  [31:0] ID_inst
 );
-    wire ID_done = ~ID_busy;
-    assign ID_ready        = ~ID_valid | (ID_done & EXE_ready);
-    assign ID_to_EXE_valid = ID_valid & ID_done;
+    assign ID_ready        = ~ID_valid | (~ID_busy & EXE_ready);
+    assign ID_to_EXE_valid = ID_valid & ~ID_busy;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -26,7 +27,9 @@ module ID_reg (
             ID_PC    <= 32'h0;
             ID_inst  <= 32'h0;
         end else begin
-            if (ID_ready) begin
+            if (ID_bj_enable) begin
+                ID_valid <= 1'b0;
+            end else if (ID_ready) begin
                 ID_valid <= IF_to_ID_valid;
             end
             if (IF_to_ID_valid & ID_ready) begin

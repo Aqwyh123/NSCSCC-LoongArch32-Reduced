@@ -27,9 +27,8 @@ module MEM_reg (
     output reg                        MEM_GPR_write_src_is_MEM,
     output reg  [               31:0] MEM_ALU_result
 );
-    wire MEM_done = ~MEM_busy;
-    assign MEM_ready       = ~MEM_valid | (MEM_done & WB_ready);
-    assign MEM_to_WB_valid = MEM_valid & MEM_done;
+    assign MEM_ready       = ~MEM_valid | (~MEM_busy & WB_ready);
+    assign MEM_to_WB_valid = MEM_valid & ~MEM_busy;
 
     always @(posedge clk) begin
         if (reset) begin
