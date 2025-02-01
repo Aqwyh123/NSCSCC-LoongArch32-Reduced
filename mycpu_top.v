@@ -147,7 +147,7 @@ module mycpu_top (
     wire [ `MEM_READ_EXT_WIDTH-1:0] MEM_MEM_read_ext;
     wire [                     1:0] MEM_MEM_addr_low;
     wire [                    31:0] MEM_MEM_read_data;
-    wire [                    31:0] MEM_MEM_result;
+    wire [                    31:0] MEM_GPR_write_data;
 
     wire                            WB_busy;
     wire                            WB_valid;
@@ -158,9 +158,6 @@ module mycpu_top (
     wire                            WB_GPR_write;
     wire                            WB_GPR_write_enable;
     wire [                     4:0] WB_GPR_write_num;
-    wire                            WB_GPR_write_src_is_MEM;
-    wire [                    31:0] WB_ALU_result;
-    wire [                    31:0] WB_MEM_result;
     wire [                    31:0] WB_GPR_write_data;
     wire [                    31:0] WB_forward_data;
 
@@ -403,43 +400,35 @@ module mycpu_top (
     assign MEM_MEM_read_data    = data_sram_rdata;
 
     MEM_stage mem_stage (
-        .busy         (MEM_busy),
-        .MEM_read_ext (MEM_MEM_read_ext),
-        .MEM_addr_low (MEM_MEM_addr_low),
-        .MEM_read_data(MEM_MEM_read_data),
-        .MEM_result   (MEM_MEM_result)
+        .busy                (MEM_busy),
+        .ALU_result          (MEM_ALU_result),
+        .MEM_read_ext        (MEM_MEM_read_ext),
+        .MEM_addr_low        (MEM_MEM_addr_low),
+        .MEM_read_data       (MEM_MEM_read_data),
+        .GPR_write_src_is_MEM(MEM_GPR_write_src_is_MEM),
+        .GPR_write_data      (MEM_GPR_write_data)
     );
 
     WB_reg wb_reg (
-        .clk                     (clk),
-        .reset                   (reset),
-        .WB_busy                 (WB_busy),
-        .MEM_to_WB_valid         (MEM_to_WB_valid),
-        .WB_valid                (WB_valid),
-        .WB_ready                (WB_ready),
-        .MEM_PC                  (MEM_PC),
-        .MEM_ALU_result          (MEM_ALU_result),
-        .MEM_MEM_result          (MEM_MEM_result),
-        .MEM_GPR_write           (MEM_GPR_write),
-        .MEM_GPR_write_num       (MEM_GPR_write_num),
-        .MEM_GPR_write_src_is_MEM(MEM_GPR_write_src_is_MEM),
-        .MEM_GPR_new             (MEM_GPR_new),
-        .WB_PC                   (WB_PC),
-        .WB_ALU_result           (WB_ALU_result),
-        .WB_MEM_result           (WB_MEM_result),
-        .WB_GPR_write            (WB_GPR_write),
-        .WB_GPR_write_num        (WB_GPR_write_num),
-        .WB_GPR_write_src_is_MEM (WB_GPR_write_src_is_MEM),
-        .WB_GPR_new              (WB_GPR_new)
+        .clk               (clk),
+        .reset             (reset),
+        .WB_busy           (WB_busy),
+        .MEM_to_WB_valid   (MEM_to_WB_valid),
+        .WB_valid          (WB_valid),
+        .WB_ready          (WB_ready),
+        .MEM_PC            (MEM_PC),
+        .MEM_GPR_write     (MEM_GPR_write),
+        .MEM_GPR_write_num (MEM_GPR_write_num),
+        .MEM_GPR_write_data(MEM_GPR_write_data),
+        .MEM_GPR_new       (MEM_GPR_new),
+        .WB_PC             (WB_PC),
+        .WB_GPR_write      (WB_GPR_write),
+        .WB_GPR_write_num  (WB_GPR_write_num),
+        .WB_GPR_write_data (WB_GPR_write_data),
+        .WB_GPR_new        (WB_GPR_new)
     );
 
-    WB_stage wb_stage (
-        .busy                (WB_busy),
-        .ALU_result          (WB_ALU_result),
-        .MEM_result          (WB_MEM_result),
-        .GPR_write_src_is_MEM(WB_GPR_write_src_is_MEM),
-        .GPR_write_data      (WB_GPR_write_data)
-    );
+    WB_stage wb_stage (.busy(WB_busy));
 
     assign WB_GPR_write_enable = WB_valid & WB_GPR_write;
 

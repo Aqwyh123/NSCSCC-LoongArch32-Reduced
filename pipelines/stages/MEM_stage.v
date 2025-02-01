@@ -2,11 +2,14 @@
 
 module MEM_stage (
     output wire                           busy,
+    input  wire [                   31:0] ALU_result,
     input  wire [`MEM_READ_EXT_WIDTH-1:0] MEM_read_ext,
     input  wire [                    1:0] MEM_addr_low,
     input  wire [                   31:0] MEM_read_data,
-    output wire [                   31:0] MEM_result
+    input  wire                           GPR_write_src_is_MEM,
+    output wire [                   31:0] GPR_write_data
 );
-    assign busy       = 1'b0;
-    assign MEM_result = MEM_read_data;
+    assign busy = 1'b0;
+    wire [31:0] MEM_result = MEM_read_data;
+    assign GPR_write_data = GPR_write_src_is_MEM ? MEM_result : ALU_result;
 endmodule
