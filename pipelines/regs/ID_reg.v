@@ -14,8 +14,10 @@ module ID_reg (
     input  wire        ID_bj_enable,
     // data signals
     input  wire [31:0] IF_PC,
+    input  wire [31:0] IF_link,
     input  wire [31:0] IF_inst,
     output reg  [31:0] ID_PC,
+    output reg  [31:0] ID_link,
     output reg  [31:0] ID_inst
 );
     assign ID_ready        = ~ID_valid | (~ID_busy & EXE_ready);
@@ -25,6 +27,7 @@ module ID_reg (
         if (reset) begin
             ID_valid <= 1'b0;
             ID_PC    <= 32'h0;
+            ID_link  <= 32'h0;
             ID_inst  <= 32'h0;
         end else begin
             if (ID_bj_enable) begin
@@ -34,6 +37,7 @@ module ID_reg (
             end
             if (IF_to_ID_valid & ID_ready) begin
                 ID_PC   <= IF_PC;
+                ID_link <= IF_link;
                 ID_inst <= IF_inst;
             end
         end

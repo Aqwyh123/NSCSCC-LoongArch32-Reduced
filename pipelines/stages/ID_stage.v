@@ -4,34 +4,28 @@
 module ID_stage (
     input  wire [                31:0] PC,
     input  wire [                31:0] inst,
+    output wire                        ALU_src2_is_imm,
     output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire                        GPR_write_src_is_MEM,
     output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    output wire                        GPR_read1,
-    output wire                        GPR_read2,
-    output wire                        GPR_write,
+    output wire [`GPR_WRITE_WIDTH-1:0] GPR_write,
     output wire [                 4:0] GPR_read_num1,
-    input  wire [                31:0] GPR_read_data1,
+    input  wire [                31:0] rj_data,
     output wire [                 4:0] GPR_read_num2,
-    input  wire [                31:0] GPR_read_data2,
+    input  wire [                31:0] rkd_data,
     output wire [                 4:0] GPR_write_num,
     output wire                        bj_taken,
     output wire [                31:0] target_PC,
-    output wire [                31:0] ALU_operand1,
-    output wire [                31:0] ALU_operand2,
-    output wire [                31:0] rkd_data
+    output wire [                31:0] imm,
+    output wire [  `GPR_USE_WIDTH-1:0] GPR1_use,
+    output wire [  `GPR_USE_WIDTH-1:0] GPR2_use
 );
     wire jump;
     wire [`BRANCH_WIDTH-1:0] branch;
     wire branch_reverse;
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
-    wire ALU_src1_is_PC;
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
-    wire ALU_src2_is_imm;
     wire GPR_read_src2_is_rd;
-    wire [31:0] rj_data;
-    wire [31:0] imm;
     wire GPR_write_dst_is_r1;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
@@ -52,29 +46,25 @@ module ID_stage (
     // wire rj_ltu_rd;
 
     ID id (
-        .instruction         (inst),
-        .branch              (branch),
-        .branch_reverse      (branch_reverse),
-        .jump                (jump),
-        .imm_src             (imm_src),
-        .offs_src            (offs_src),
-        .ALU_src1_is_PC      (ALU_src1_is_PC),
-        .ALU_src2_is_imm     (ALU_src2_is_imm),
-        .ALU_operation       (ALU_operation),
-        .GPR_read1           (GPR_read1),
-        .GPR_read2           (GPR_read2),
-        .GPR_read_src2_is_rd (GPR_read_src2_is_rd),
-        .GPR_write_dst_is_r1 (GPR_write_dst_is_r1),
-        .GPR_write_src_is_MEM(GPR_write_src_is_MEM),
-        .MEM_read            (MEM_read),
-        .MEM_write           (MEM_write),
-        .GPR_write           (GPR_write)
+        .instruction        (inst),
+        .branch             (branch),
+        .branch_reverse     (branch_reverse),
+        .jump               (jump),
+        .imm_src            (imm_src),
+        .offs_src           (offs_src),
+        .ALU_src2_is_imm    (ALU_src2_is_imm),
+        .ALU_operation      (ALU_operation),
+        .GPR_read_src2_is_rd(GPR_read_src2_is_rd),
+        .GPR_write_dst_is_r1(GPR_write_dst_is_r1),
+        .GPR_write          (GPR_write),
+        .MEM_read           (MEM_read),
+        .MEM_write          (MEM_write),
+        .GPR1_use           (GPR1_use),
+        .GPR2_use           (GPR2_use)
     );
 
     assign GPR_read_num1 = rj;
     assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
-    assign rj_data = GPR_read_data1;
-    assign rkd_data = GPR_read_data2;
 
     assign rj_eq_rd = rj_data == rkd_data;
     // assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
@@ -97,14 +87,10 @@ module ID_stage (
     );
 
     // si20 is used to lu12i_w
-    assign imm = {32{imm_src[`IMM_SRC_4]}} & 32'h4 |
-                 {32{imm_src[`IMM_SRC_UI12]}} & {20'b0, i12} |
+    assign imm = {32{imm_src[`IMM_SRC_UI12]}} & {20'b0, i12} |
                  {32{imm_src[`IMM_SRC_SI12]}} & {{20{i12[11]}}, i12} |
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
-
-    assign ALU_operand1 = ALU_src1_is_PC ? PC : rj_data;
-    assign ALU_operand2 = ALU_src2_is_imm ? imm : rkd_data;
 
     assign GPR_write_num = GPR_write_dst_is_r1 ? 5'd1 : rd;
 endmodule

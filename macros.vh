@@ -31,12 +31,11 @@
 `define O26_LOW_LSB 10
 
 // ui5 = ui12[4:0]
-`define IMM_SRC_WIDTH 5
-`define IMM_SRC_4 0
-`define IMM_SRC_UI12 1
-`define IMM_SRC_SI12 2
-`define IMM_SRC_SI14 3
-`define IMM_SRC_SI20 4
+`define IMM_SRC_WIDTH 4
+`define IMM_SRC_UI12 0
+`define IMM_SRC_SI12 1
+`define IMM_SRC_SI14 2
+`define IMM_SRC_SI20 3
 
 `define OFFS_SRC_WIDTH 3
 `define OFFS_SRC_16 0
@@ -49,7 +48,7 @@
 `define BRANCH_LT 2
 `define BRANCH_LTU 3
 
-`define ALU_OP_WIDTH 12
+`define ALU_OP_WIDTH 11
 `define ALU_OP_ADD 0
 `define ALU_OP_SUB 1
 `define ALU_OP_SLT 2
@@ -61,7 +60,6 @@
 `define ALU_OP_SLL 8
 `define ALU_OP_SRL 9
 `define ALU_OP_SRA 10
-`define ALU_OP_LUI 11
 
 `define MEM_READ_WIDTH 5
 `define MEM_READ_BYTE 0
@@ -74,6 +72,16 @@
 `define MEM_WRITE_BYTE 0
 `define MEM_WRITE_HALF 1
 `define MEM_WRITE_WORD 2
+
+`define GPR_WRITE_WIDTH 4
+`define GPR_WRITE_LINK 0
+`define GPR_WRITE_IMM 1
+`define GPR_WRITE_ALU 2
+`define GPR_WRITE_MEM 3
+
+`define GPR_USE_WIDTH 2
+`define USE_ID 0
+`define USE_EXE 1
 
 `define ADD_W_31_26 6'b000000
 `define ADD_W_25_24 2'b00

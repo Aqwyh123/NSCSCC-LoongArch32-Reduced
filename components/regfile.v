@@ -11,7 +11,7 @@ module regfile (
     input  wire [ 4:0] read_num2,
     output wire [31:0] read_data2,
     // WRITE PORT
-    input  wire        write_enable,  // HIGH valid
+    input  wire        write_enable,
     input  wire [ 4:0] write_num,
     input  wire [31:0] write_data
 );
@@ -21,8 +21,8 @@ module regfile (
         if (write_enable) rf[write_num] <= write_data;
     end
 
-    assign read_data1 = |read_num1 ? rf[read_num1] : 32'h0;
-    assign read_data2 = |read_num2 ? rf[read_num2] : 32'h0;
+    assign read_data1 = |read_num1 ? (write_enable & read_num1 == write_num ? write_data : rf[read_num1]) : 32'h0;
+    assign read_data2 = |read_num2 ? (write_enable & read_num2 == write_num ? write_data : rf[read_num2]) : 32'h0;
 endmodule
 
 `endif
