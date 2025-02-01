@@ -21,6 +21,7 @@ module ALU (
     wire        op_sll = operation[`ALU_OP_SLL];  //logic left shift
     wire        op_srl = operation[`ALU_OP_SRL];  //logic right shift
     wire        op_sra = operation[`ALU_OP_SRA];  //arithmetic right shift
+    wire        op_lui = operation[`ALU_OP_LUI];  //load upper immediate
 
     wire [31:0] add_sub_result;
     wire [31:0] slt_result;
@@ -31,6 +32,7 @@ module ALU (
     wire [31:0] xor_result;
     wire [31:0] sll_result;
     wire [31:0] sr_result;
+    wire [31:0] lui_result;
 
     // ADD, SUB
     // a - b == a + ~b + 1
@@ -68,6 +70,7 @@ module ALU (
     assign or_result = operand1 | operand2;
     assign nor_result = ~or_result;
     assign xor_result = operand1 ^ operand2;
+    assign lui_result = operand2;
 
     // SLL
     assign sll_result = operand1 << operand2[4:0];
@@ -92,7 +95,8 @@ module ALU (
                   | ({32{op_or        }} & or_result)
                   | ({32{op_xor       }} & xor_result)
                   | ({32{op_sll       }} & sll_result)
-                  | ({32{op_srl|op_sra}} & sr_result);
+                  | ({32{op_srl|op_sra}} & sr_result)
+                  | ({32{op_lui       }} & lui_result);
 
     assign MEM_addr = add_sub_result;
 endmodule

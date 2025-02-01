@@ -2,23 +2,28 @@
 `include "../../components/ID.v"
 
 module ID_stage (
-    input  wire [                31:0] PC,
-    input  wire [                31:0] inst,
-    output wire                        ALU_src2_is_imm,
-    output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
-    output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    output wire [`GPR_WRITE_WIDTH-1:0] GPR_write,
-    output wire [                 4:0] GPR_read_num1,
-    input  wire [                31:0] rj_data,
-    output wire [                 4:0] GPR_read_num2,
-    input  wire [                31:0] rkd_data,
-    output wire [                 4:0] GPR_write_num,
-    output wire                        bj_taken,
-    output wire [                31:0] target_PC,
-    output wire [                31:0] imm,
-    output wire [  `GPR_USE_WIDTH-1:0] GPR1_use,
-    output wire [  `GPR_USE_WIDTH-1:0] GPR2_use
+    input  wire [                    31:0] PC,
+    input  wire [                    31:0] inst,
+    output wire                            ALU_src1_is_PC,
+    output wire                            ALU_src2_is_imm,
+    output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                            MEM_read,
+    output wire [ `MEM_READ_EXT_WIDTH-1:0] MEM_read_ext,
+    output wire                            MEM_write,
+    output wire [`MEM_WRITE_EXT_WIDTH-1:0] MEM_write_ext,
+    output wire [                     4:0] GPR_read_num1,
+    input  wire [                    31:0] rj_data,
+    output wire [                     4:0] GPR_read_num2,
+    input  wire [                    31:0] rkd_data,
+    output wire                            GPR_write,
+    output wire [                     4:0] GPR_write_num,
+    output wire                            GPR_write_src_is_MEM,
+    output wire                            bj_taken,
+    output wire [                    31:0] target_PC,
+    output wire [                    31:0] imm,
+    output wire [      `GPR_USE_WIDTH-1:0] GPR1_use,
+    output wire [      `GPR_USE_WIDTH-1:0] GPR2_use,
+    output wire [      `GPR_NEW_WIDTH-1:0] GPR_new
 );
     wire jump;
     wire [`BRANCH_WIDTH-1:0] branch;
@@ -46,21 +51,26 @@ module ID_stage (
     // wire rj_ltu_rd;
 
     ID id (
-        .instruction        (inst),
-        .branch             (branch),
-        .branch_reverse     (branch_reverse),
-        .jump               (jump),
-        .imm_src            (imm_src),
-        .offs_src           (offs_src),
-        .ALU_src2_is_imm    (ALU_src2_is_imm),
-        .ALU_operation      (ALU_operation),
-        .GPR_read_src2_is_rd(GPR_read_src2_is_rd),
-        .GPR_write_dst_is_r1(GPR_write_dst_is_r1),
-        .GPR_write          (GPR_write),
-        .MEM_read           (MEM_read),
-        .MEM_write          (MEM_write),
-        .GPR1_use           (GPR1_use),
-        .GPR2_use           (GPR2_use)
+        .instruction         (inst),
+        .branch              (branch),
+        .branch_reverse      (branch_reverse),
+        .jump                (jump),
+        .imm_src             (imm_src),
+        .offs_src            (offs_src),
+        .GPR_read_src2_is_rd (GPR_read_src2_is_rd),
+        .ALU_src1_is_PC      (ALU_src1_is_PC),
+        .ALU_src2_is_imm     (ALU_src2_is_imm),
+        .ALU_operation       (ALU_operation),
+        .MEM_read            (MEM_read),
+        .MEM_read_ext        (MEM_read_ext),
+        .MEM_write           (MEM_write),
+        .MEM_write_ext       (MEM_write_ext),
+        .GPR_write           (GPR_write),
+        .GPR_write_dst_is_r1 (GPR_write_dst_is_r1),
+        .GPR_write_src_is_MEM(GPR_write_src_is_MEM),
+        .GPR1_use            (GPR1_use),
+        .GPR2_use            (GPR2_use),
+        .GPR_new             (GPR_new)
     );
 
     assign GPR_read_num1 = rj;
@@ -87,7 +97,8 @@ module ID_stage (
     );
 
     // si20 is used to lu12i_w
-    assign imm = {32{imm_src[`IMM_SRC_UI12]}} & {20'b0, i12} |
+    assign imm = {32{imm_src[`IMM_SRC_4]}} & 32'h4 |
+                 {32{imm_src[`IMM_SRC_UI12]}} & {20'b0, i12} |
                  {32{imm_src[`IMM_SRC_SI12]}} & {{20{i12[11]}}, i12} |
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
