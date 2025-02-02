@@ -1,11 +1,11 @@
-`include "../../tools/adder.v"
+`include "../../macros.vh"
 
 module IF_stage (
-    output wire        busy,
+    output wire        done,
     input  wire [31:0] PC,
     output wire [31:0] seq_PC
 );
-    assign busy = 1'b0;
+    assign done = 1'b1;
 
     adder #(
         .WIDTH(32)

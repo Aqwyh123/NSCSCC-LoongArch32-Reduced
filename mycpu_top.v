@@ -1,14 +1,4 @@
-`include "pipelines/regs/IF_reg.v"
-`include "pipelines/regs/ID_reg.v"
-`include "pipelines/regs/EXE_reg.v"
-`include "pipelines/regs/MEM_reg.v"
-`include "pipelines/regs/WB_reg.v"
-`include "pipelines/stages/IF_stage.v"
-`include "pipelines/stages/ID_stage.v"
-`include "pipelines/stages/EXE_stage.v"
-`include "pipelines/stages/MEM_stage.v"
-`include "pipelines/stages/WB_stage.v"
-`include "components/regfile.v"
+`include "macros.vh"
 
 module mycpu_top (
     input  wire        clk,
@@ -36,7 +26,7 @@ module mycpu_top (
         reset <= ~resetn;
     end
 
-    wire                            IF_busy;
+    wire                            IF_done;
     wire                            IF_valid;
     wire                            IF_ready;
     wire                            IF_to_ID_valid;
@@ -46,7 +36,7 @@ module mycpu_top (
     wire [                    31:0] IF_seq_PC;
     wire [                    31:0] IF_inst;
 
-    wire                            ID_busy;
+    wire                            ID_done;
     wire                            ID_valid;
     wire                            ID_ready;
     wire                            ID_to_EXE_valid;
@@ -66,6 +56,7 @@ module mycpu_top (
     wire                            ID_GPR_write_src_is_MEM;
     wire [                    31:0] ID_link;
 
+    wire                            ID_stall;
     wire                            ID_MEM_GPR1_A;
     wire                            ID_MEM_GPR2_A;
     wire                            ID_MEM_GPR1_Ts;
@@ -90,7 +81,7 @@ module mycpu_top (
     wire [`MEM_WRITE_EXT_WIDTH-1:0] ID_MEM_write_ext;
     wire [                    31:0] ID_imm;
 
-    wire                            EXE_busy;
+    wire                            EXE_done;
     wire                            EXE_valid;
     wire                            EXE_ready;
     wire                            EXE_to_MEM_valid;
@@ -130,7 +121,7 @@ module mycpu_top (
     wire [                    31:0] EXE_MEM_write_data;
     wire [                    31:0] EXE_ALU_result;
 
-    wire                            MEM_busy;
+    wire                            MEM_done;
     wire                            MEM_valid;
     wire                            MEM_ready;
     wire                            MEM_to_WB_valid;
@@ -149,7 +140,7 @@ module mycpu_top (
     wire [                    31:0] MEM_MEM_read_data;
     wire [                    31:0] MEM_GPR_write_data;
 
-    wire                            WB_busy;
+    wire                            WB_done;
     wire                            WB_valid;
     wire                            WB_ready;
 
@@ -164,7 +155,7 @@ module mycpu_top (
     IF_reg if_reg (
         .clk           (clk),
         .reset         (reset),
-        .IF_busy       (IF_busy),
+        .IF_done       (IF_done),
         .ID_ready      (ID_ready),
         .IF_valid      (IF_valid),
         .IF_ready      (IF_ready),
@@ -175,7 +166,7 @@ module mycpu_top (
     );
 
     IF_stage if_stage (
-        .busy  (IF_busy),
+        .done  (IF_done),
         .PC    (IF_PC),
         .seq_PC(IF_seq_PC)
     );
@@ -191,7 +182,7 @@ module mycpu_top (
     ID_reg id_reg (
         .clk            (clk),
         .reset          (reset),
-        .ID_busy        (ID_busy),
+        .ID_done        (ID_done),
         .EXE_ready      (EXE_ready),
         .IF_to_ID_valid (IF_to_ID_valid),
         .ID_valid       (ID_valid),
@@ -222,7 +213,7 @@ module mycpu_top (
     assign ID_MEM_GPR1_Ts = ID_GPR1_use[`GPR_USE_ID] & MEM_GPR_new[`GPR_NEW_WB];
     assign ID_MEM_GPR2_Ts = ID_GPR2_use[`GPR_USE_ID] & MEM_GPR_new[`GPR_NEW_WB];
 
-    assign ID_busy = ID_EXE_GPR1_A & ID_EXE_GPR1_Ts | ID_EXE_GPR2_A & ID_EXE_GPR2_Ts |
+    assign ID_stall = ID_EXE_GPR1_A & ID_EXE_GPR1_Ts | ID_EXE_GPR2_A & ID_EXE_GPR2_Ts |
                      ID_MEM_GPR1_A & ID_MEM_GPR1_Ts | ID_MEM_GPR2_A & ID_MEM_GPR2_Ts;
 
     assign ID_EXE_Tf = |EXE_GPR_new[`GPR_NEW_EXE:`GPR_NEW_ID];
@@ -260,7 +251,9 @@ module mycpu_top (
         .GPR_new             (ID_GPR_new)
     );
 
-    assign ID_bj_enable = ID_valid & ~ID_busy & ID_bj_taken;
+    assign ID_done      = ~ID_stall;
+
+    assign ID_bj_enable = ID_valid & ID_done & ID_bj_taken;
 
     regfile gpr_file (
         .clk         (clk),
@@ -276,7 +269,7 @@ module mycpu_top (
     EXE_reg exe_reg (
         .clk                     (clk),
         .reset                   (reset),
-        .EXE_busy                (EXE_busy),
+        .EXE_done                (EXE_done),
         .MEM_ready               (MEM_ready),
         .ID_to_EXE_valid         (ID_to_EXE_valid),
         .EXE_valid               (EXE_valid),
@@ -345,7 +338,10 @@ module mycpu_top (
                           EXE_GPR_read_data2;
 
     EXE_stage exe_stage (
-        .busy            (EXE_busy),
+        .clk             (clk),
+        .reset           (reset),
+        .valid           (EXE_valid),
+        .done            (EXE_done),
         .PC              (EXE_PC),
         .imm             (EXE_imm),
         .rj_data         (EXE_rj_data),
@@ -369,7 +365,7 @@ module mycpu_top (
     MEM_reg mem_reg (
         .clk                     (clk),
         .reset                   (reset),
-        .MEM_busy                (MEM_busy),
+        .MEM_done                (MEM_done),
         .WB_ready                (WB_ready),
         .EXE_to_MEM_valid        (EXE_to_MEM_valid),
         .MEM_valid               (MEM_valid),
@@ -400,7 +396,7 @@ module mycpu_top (
     assign MEM_MEM_read_data    = data_sram_rdata;
 
     MEM_stage mem_stage (
-        .busy                (MEM_busy),
+        .done                (MEM_done),
         .ALU_result          (MEM_ALU_result),
         .MEM_read_ext        (MEM_MEM_read_ext),
         .MEM_addr_low        (MEM_MEM_addr_low),
@@ -412,7 +408,7 @@ module mycpu_top (
     WB_reg wb_reg (
         .clk               (clk),
         .reset             (reset),
-        .WB_busy           (WB_busy),
+        .WB_done           (WB_done),
         .MEM_to_WB_valid   (MEM_to_WB_valid),
         .WB_valid          (WB_valid),
         .WB_ready          (WB_ready),
@@ -428,7 +424,7 @@ module mycpu_top (
         .WB_GPR_new        (WB_GPR_new)
     );
 
-    WB_stage wb_stage (.busy(WB_busy));
+    WB_stage wb_stage (.done(WB_done));
 
     assign WB_GPR_write_enable = WB_valid & WB_GPR_write;
 

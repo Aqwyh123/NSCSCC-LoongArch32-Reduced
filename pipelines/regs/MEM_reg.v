@@ -1,11 +1,10 @@
 `include "../../macros.vh"
 
-
 module MEM_reg (
     input  wire                           clk,
     input  wire                           reset,
     // handshaking signals
-    input  wire                           MEM_busy,
+    input  wire                           MEM_done,
     input  wire                           WB_ready,
     input  wire                           EXE_to_MEM_valid,
     output reg                            MEM_valid,
@@ -29,8 +28,8 @@ module MEM_reg (
     output reg                            MEM_GPR_write_src_is_MEM,
     output reg  [     `GPR_NEW_WIDTH-1:0] MEM_GPR_new
 );
-    assign MEM_ready       = ~MEM_valid | (~MEM_busy & WB_ready);
-    assign MEM_to_WB_valid = MEM_valid & ~MEM_busy;
+    assign MEM_ready       = ~MEM_valid | (MEM_done & WB_ready);
+    assign MEM_to_WB_valid = MEM_valid & MEM_done;
 
     always @(posedge clk) begin
         if (reset) begin

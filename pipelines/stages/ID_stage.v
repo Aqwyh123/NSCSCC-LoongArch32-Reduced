@@ -1,5 +1,4 @@
-`include "../../tools/adder.v"
-`include "../../components/ID.v"
+`include "../../macros.vh"
 
 module ID_stage (
     input  wire [                    31:0] PC,

@@ -4,7 +4,7 @@ module WB_reg (
     input  wire                      clk,
     input  wire                      reset,
     // handshaking signals
-    input  wire                      WB_busy,
+    input  wire                      WB_done,
     input  wire                      MEM_to_WB_valid,
     output reg                       WB_valid,
     output wire                      WB_ready,
@@ -20,7 +20,7 @@ module WB_reg (
     output reg  [              31:0] WB_GPR_write_data,
     output reg  [`GPR_NEW_WIDTH-1:0] WB_GPR_new
 );
-    assign WB_ready = ~WB_valid | (~WB_busy & 1'b1);
+    assign WB_ready = ~WB_valid | (WB_done & 1'b1);
 
     always @(posedge clk) begin
         if (reset) begin

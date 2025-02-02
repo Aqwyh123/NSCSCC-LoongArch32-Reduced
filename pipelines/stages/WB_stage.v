@@ -1,7 +1,7 @@
 `include "../../macros.vh"
 
 module WB_stage (
-    output wire busy
+    output wire done
 );
-    assign busy = 1'b0;
+    assign done = 1'b1;
 endmodule

@@ -4,7 +4,7 @@ module EXE_reg (
     input  wire                            clk,
     input  wire                            reset,
     // handshaking signals
-    input  wire                            EXE_busy,
+    input  wire                            EXE_done,
     input  wire                            MEM_ready,
     input  wire                            ID_to_EXE_valid,
     output reg                             EXE_valid,
@@ -48,8 +48,8 @@ module EXE_reg (
     output reg                             EXE_GPR_write_src_is_MEM,
     output reg  [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new
 );
-    assign EXE_ready        = ~EXE_valid | (~EXE_busy & MEM_ready);
-    assign EXE_to_MEM_valid = EXE_valid & ~EXE_busy;
+    assign EXE_ready        = ~EXE_valid | (EXE_done & MEM_ready);
+    assign EXE_to_MEM_valid = EXE_valid & EXE_done;
 
     always @(posedge clk) begin
         if (reset) begin

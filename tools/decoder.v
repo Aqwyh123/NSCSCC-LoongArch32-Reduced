@@ -1,5 +1,3 @@
-`ifndef DECODER_V
-`define DECODER_V
 `include "../macros.vh"
 
 module decoder #(
@@ -17,4 +15,3 @@ module decoder #(
     endgenerate
 endmodule
 
-`endif

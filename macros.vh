@@ -49,7 +49,7 @@
 `define BRANCH_LT 2
 `define BRANCH_LTU 3
 
-`define ALU_OP_WIDTH 12
+`define ALU_OP_WIDTH 19
 `define ALU_OP_ADD 0
 `define ALU_OP_SUB 1
 `define ALU_OP_SLT 2
@@ -62,6 +62,13 @@
 `define ALU_OP_SRL 9
 `define ALU_OP_SRA 10
 `define ALU_OP_LUI 11
+`define ALU_OP_MUL_LO 12
+`define ALU_OP_MUL_HI 13
+`define ALU_OP_MULU_HI 14
+`define ALU_OP_DIV 15
+`define ALU_OP_MOD 16
+`define ALU_OP_DIVU 17
+`define ALU_OP_MODU 18
 
 `define MEM_READ_EXT_WIDTH 4
 `define MEM_READ_EXT_BYTE 0
@@ -130,7 +137,7 @@
 `define XOR_23_22 2'b00
 `define XOR_21_20 2'b01
 `define XOR_19_15 5'b01011
-/*
+
 `define SLL_W_31_26 6'b000000
 `define SLL_W_25_24 2'b00
 `define SLL_W_23_22 2'b00
@@ -148,7 +155,49 @@
 `define SRA_W_23_22 2'b00
 `define SRA_W_21_20 2'b01
 `define SRA_W_19_15 5'b10000
-*/
+
+`define MUL_W_31_26 6'b000000
+`define MUL_W_25_24 2'b00
+`define MUL_W_23_22 2'b00
+`define MUL_W_21_20 2'b01
+`define MUL_W_19_15 5'b11000
+
+`define MULH_W_31_26 6'b000000
+`define MULH_W_25_24 2'b00
+`define MULH_W_23_22 2'b00
+`define MULH_W_21_20 2'b01
+`define MULH_W_19_15 5'b11001
+
+`define MULHU_WU_31_26 6'b000000
+`define MULHU_WU_25_24 2'b00
+`define MULHU_WU_23_22 2'b00
+`define MULHU_WU_21_20 2'b01
+`define MULHU_WU_19_15 5'b11010
+
+`define DIV_W_31_26 6'b000000
+`define DIV_W_25_24 2'b00
+`define DIV_W_23_22 2'b00
+`define DIV_W_21_20 2'b10
+`define DIV_W_19_15 5'b00000
+
+`define MOD_W_31_26 6'b000000
+`define MOD_W_25_24 2'b00
+`define MOD_W_23_22 2'b00
+`define MOD_W_21_20 2'b10
+`define MOD_W_19_15 5'b00001
+
+`define DIV_WU_31_26 6'b000000
+`define DIV_WU_25_24 2'b00
+`define DIV_WU_23_22 2'b00
+`define DIV_WU_21_20 2'b10
+`define DIV_WU_19_15 5'b00010
+
+`define MOD_WU_31_26 6'b000000
+`define MOD_WU_25_24 2'b00
+`define MOD_WU_23_22 2'b00
+`define MOD_WU_21_20 2'b10
+`define MOD_WU_19_15 5'b00011
+
 `define SLLI_W_31_26 6'b000000
 `define SLLI_W_25_24 2'b00
 `define SLLI_W_23_22 2'b01
@@ -167,12 +216,35 @@
 `define SRAI_W_21_20 2'b00
 `define SRAI_W_19_15 5'b10001
 
+`define SLTI_31_26 6'b000000
+`define SLTI_25_24 2'b10
+`define SLTI_23_22 2'b00
+
+`define SLTUI_31_26 6'b000000
+`define SLTUI_25_24 2'b10
+`define SLTUI_23_22 2'b01
+
 `define ADDI_W_31_26 6'b000000
 `define ADDI_W_25_24 2'b10
 `define ADDI_W_23_22 2'b10
 
+`define ANDI_31_26 6'b000000
+`define ANDI_25_24 2'b11
+`define ANDI_23_22 2'b01
+
+`define ORI_31_26 6'b000000
+`define ORI_25_24 2'b11
+`define ORI_23_22 2'b10
+
+`define XORI_31_26 6'b000000
+`define XORI_25_24 2'b11
+`define XORI_23_22 2'b11
+
 `define LU12I_W_31_26 6'b000101
 `define LU12I_W_25 1'b0
+
+`define PCADDU12I_31_26 6'b000111
+`define PCADDU12I_25 1'b0
 
 `define LD_W_31_26 6'b001010
 `define LD_W_25_24 2'b00

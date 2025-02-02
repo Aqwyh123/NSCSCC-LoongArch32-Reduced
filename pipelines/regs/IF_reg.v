@@ -4,7 +4,7 @@ module IF_reg (
     input  wire        clk,
     input  wire        reset,
     // handshaking signals
-    input  wire        IF_busy,
+    input  wire        IF_done,
     input  wire        ID_ready,
     output reg         IF_valid,
     output wire        IF_ready,
@@ -15,8 +15,8 @@ module IF_reg (
     input  wire [31:0] IF_next_PC,
     output reg  [31:0] IF_PC
 );
-    assign IF_ready       = ~IF_valid | (~IF_busy & ID_ready);
-    assign IF_to_ID_valid = IF_valid & ~IF_busy;
+    assign IF_ready       = ~IF_valid | (IF_done & ID_ready);
+    assign IF_to_ID_valid = IF_valid & IF_done;
 
     always @(posedge clk) begin
         if (reset) begin

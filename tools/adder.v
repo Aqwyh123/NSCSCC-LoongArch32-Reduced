@@ -1,5 +1,3 @@
-`ifndef ADDER_V
-`define ADDER_V
 `include "../macros.vh"
 
 module adder #(
@@ -14,4 +12,3 @@ module adder #(
     assign {cout, sum} = addend1 + addend2 + cin;
 endmodule
 
-`endif

@@ -4,7 +4,7 @@ module ID_reg (
     input  wire        clk,
     input  wire        reset,
     // handshaking signals
-    input  wire        ID_busy,
+    input  wire        ID_done,
     input  wire        EXE_ready,
     input  wire        IF_to_ID_valid,
     output reg         ID_valid,
@@ -20,8 +20,8 @@ module ID_reg (
     output reg  [31:0] ID_link,
     output reg  [31:0] ID_inst
 );
-    assign ID_ready        = ~ID_valid | (~ID_busy & EXE_ready);
-    assign ID_to_EXE_valid = ID_valid & ~ID_busy;
+    assign ID_ready        = ~ID_valid | (ID_done & EXE_ready);
+    assign ID_to_EXE_valid = ID_valid & ID_done;
 
     always @(posedge clk) begin
         if (reset) begin
