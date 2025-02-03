@@ -349,7 +349,6 @@ module mycpu_top (
         .ALU_src1_is_PC  (EXE_ALU_src1_is_PC),
         .ALU_src2_is_imm (EXE_ALU_src2_is_imm),
         .ALU_operation   (EXE_ALU_operation),
-        .MEM_write       (EXE_MEM_write),
         .MEM_write_ext   (EXE_MEM_write_ext),
         .ALU_result      (EXE_ALU_result),
         .MEM_write_enable(EXE_MEM_write_enable),

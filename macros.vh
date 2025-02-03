@@ -70,15 +70,17 @@
 `define ALU_OP_DIVU 17
 `define ALU_OP_MODU 18
 
-`define MEM_READ_EXT_WIDTH 4
+`define MEM_READ_EXT_WIDTH 5
 `define MEM_READ_EXT_BYTE 0
 `define MEM_READ_EXT_HALF 1
-`define MEM_READ_EXT_BYTEU 2
-`define MEM_READ_EXT_HALFU 3
+`define MEM_READ_EXT_WORD 2
+`define MEM_READ_EXT_BYTEU 3
+`define MEM_READ_EXT_HALFU 4
 
-`define MEM_WRITE_EXT_WIDTH 2
+`define MEM_WRITE_EXT_WIDTH 3
 `define MEM_WRITE_EXT_BYTE 0
 `define MEM_WRITE_EXT_HALF 1
+`define MEM_WRITE_EXT_WORD 2
 
 `define GPR_USE_WIDTH 2
 `define GPR_USE_ID 0
@@ -246,13 +248,37 @@
 `define PCADDU12I_31_26 6'b000111
 `define PCADDU12I_25 1'b0
 
+`define LD_B_31_26 6'b001010
+`define LD_B_25_24 2'b00
+`define LD_B_23_22 2'b00
+
+`define LD_H_31_26 6'b001010
+`define LD_H_25_24 2'b00
+`define LD_H_23_22 2'b01
+
 `define LD_W_31_26 6'b001010
 `define LD_W_25_24 2'b00
 `define LD_W_23_22 2'b10
 
+`define ST_B_31_26 6'b001010
+`define ST_B_25_24 2'b01
+`define ST_B_23_22 2'b00
+
+`define ST_H_31_26 6'b001010
+`define ST_H_25_24 2'b01
+`define ST_H_23_22 2'b01
+
 `define ST_W_31_26 6'b001010
 `define ST_W_25_24 2'b01
 `define ST_W_23_22 2'b10
+
+`define LD_BU_31_26 6'b001010
+`define LD_BU_25_24 2'b10
+`define LD_BU_23_22 2'b00
+
+`define LD_HU_31_26 6'b001010
+`define LD_HU_25_24 2'b10
+`define LD_HU_23_22 2'b01
 
 `define JIRL_31_26 6'b010011
 
@@ -263,5 +289,13 @@
 `define BEQ_31_26 6'b010110
 
 `define BNE_31_26 6'b010111
+
+`define BLT_31_26 6'b011000
+
+`define BGE_31_26 6'b011001
+
+`define BLTU_31_26 6'b011010
+
+`define BGEU_31_26 6'b011011
 
 `endif

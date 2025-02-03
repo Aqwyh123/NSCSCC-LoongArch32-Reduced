@@ -12,7 +12,6 @@ module EXE_stage (
     input  wire                            ALU_src1_is_PC,
     input  wire                            ALU_src2_is_imm,
     input  wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
-    input  wire                            MEM_write,
     input  wire [`MEM_WRITE_EXT_WIDTH-1:0] MEM_write_ext,
     output wire [                    31:0] ALU_result,
     output wire [                     3:0] MEM_write_enable,
@@ -34,6 +33,20 @@ module EXE_stage (
         .MEM_addr (MEM_addr)
     );
 
-    assign MEM_write_enable = {4{MEM_write}};
-    assign MEM_write_data   = rkd_data;
+    wire [3:0] MEM_byte_enable;
+    decoder #(
+        .IN_WIDTH (2),
+        .OUT_WIDTH(4)
+    ) decoder_2_4 (
+        .in (MEM_addr[1:0]),
+        .out(MEM_byte_enable)
+    );
+
+    assign MEM_write_enable = {4{MEM_write_ext[`MEM_WRITE_EXT_BYTE]}} & MEM_byte_enable |
+                              {4{MEM_write_ext[`MEM_WRITE_EXT_HALF]}} &
+                              {{2{MEM_addr[1]}},{2{~MEM_addr[1]}}} |
+                              {4{MEM_write_ext[`MEM_WRITE_EXT_WORD]}};
+    assign MEM_write_data   = {32{MEM_write_ext[`MEM_WRITE_EXT_BYTE]}} & {4{rkd_data[7:0]}} |
+                              {32{MEM_write_ext[`MEM_WRITE_EXT_HALF]}} & {2{rkd_data[15:0]}} |
+                              {32{MEM_write_ext[`MEM_WRITE_EXT_WORD]}} & rkd_data;
 endmodule

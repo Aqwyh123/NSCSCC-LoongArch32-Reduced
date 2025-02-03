@@ -46,8 +46,8 @@ module ID_stage (
     wire [31:0] offs;
 
     wire rj_eq_rd;
-    // wire rj_lt_rd;
-    // wire rj_ltu_rd;
+    wire rj_lt_rd;
+    wire rj_ltu_rd;
 
     ID id (
         .instruction         (inst),
@@ -76,14 +76,17 @@ module ID_stage (
     assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
 
     assign rj_eq_rd = rj_data == rkd_data;
-    // assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
-    // assign rj_ltu_rd = rj_data < rkd_data;
+    assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
+    assign rj_ltu_rd = rj_data < rkd_data;
 
     assign offs = {32{offs_src[`OFFS_SRC_16]}} & {{14{o16[15]}}, o16, 2'b0} |
                   {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}},o21,2'b0} |
                   {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
-    assign bj_taken = jump | branch[`BRANCH_UNCOND] | branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd);
+    assign bj_taken = jump | branch[`BRANCH_UNCOND] |
+                      branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
+                      branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
+                      branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd);
 
     adder #(
         .WIDTH(32)
