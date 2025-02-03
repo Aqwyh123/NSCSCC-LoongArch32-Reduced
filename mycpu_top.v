@@ -255,7 +255,7 @@ module mycpu_top (
 
     assign ID_bj_enable = ID_valid & ID_done & ID_bj_taken;
 
-    regfile gpr_file (
+    GPRF gpr_file (
         .clk         (clk),
         .read_num1   (ID_GPR_read_num1),
         .read_data1  (ID_GPR_read_data1),

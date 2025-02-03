@@ -1,6 +1,6 @@
 `include "../macros.vh"
 
-module regfile (
+module GPRF (
     input  wire        clk,
     // READ PORT 1
     input  wire [ 4:0] read_num1,
