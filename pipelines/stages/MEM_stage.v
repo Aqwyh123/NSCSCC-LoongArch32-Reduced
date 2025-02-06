@@ -1,13 +1,13 @@
 `include "../../macros.vh"
 
 module MEM_stage (
-    output wire                           done,
-    input  wire [                   31:0] ALU_result,
-    input  wire [`MEM_READ_EXT_WIDTH-1:0] MEM_read_ext,
-    input  wire [                    1:0] MEM_addr_low,
-    input  wire [                   31:0] MEM_read_data,
-    input  wire                           GPR_write_src_is_MEM,
-    output wire [                   31:0] GPR_write_data
+    // handshaking signals
+    output wire                       done,
+    // data signals
+    input  wire [`MEM_READ_WIDTH-1:0] MEM_read,
+    input  wire [                1:0] MEM_addr_low,
+    input  wire [               31:0] MEM_read_data,
+    output wire [               31:0] MEM_result
 );
     assign done = 1'b1;
 
@@ -42,11 +42,9 @@ module MEM_stage (
     wire [31:0] MEM_halfu_result = MEM_addr_low[1] ?
                                    {16'b0, MEM_read_data[31:16]} :
                                    {16'b0, MEM_read_data[15:0]};
-    wire [31:0] MEM_result = {32{MEM_read_ext[`MEM_READ_EXT_BYTE]}} & MEM_byte_result |
-                             {32{MEM_read_ext[`MEM_READ_EXT_HALF]}} & MEM_half_result |
-                             {32{MEM_read_ext[`MEM_READ_EXT_WORD]}} & MEM_read_data |
-                             {32{MEM_read_ext[`MEM_READ_EXT_BYTEU]}} & MEM_byteu_result |
-                             {32{MEM_read_ext[`MEM_READ_EXT_HALFU]}} & MEM_halfu_result;
-
-    assign GPR_write_data = GPR_write_src_is_MEM ? MEM_result : ALU_result;
+    assign MEM_result = {32{MEM_read[`MEM_READ_BYTE]}} & MEM_byte_result |
+                        {32{MEM_read[`MEM_READ_HALF]}} & MEM_half_result |
+                        {32{MEM_read[`MEM_READ_WORD]}} & MEM_read_data |
+                        {32{MEM_read[`MEM_READ_BYTEU]}} & MEM_byteu_result |
+                        {32{MEM_read[`MEM_READ_HALFU]}} & MEM_halfu_result;
 endmodule

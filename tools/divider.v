@@ -3,13 +3,13 @@
 module divider (
     input  wire        clk,
     input  wire        reset,
-    input  wire        start,
+    input  wire        valid,
     input  wire        div_signed,
     input  wire [31:0] dividend,
     input  wire [31:0] divisor,
-    output wire [31:0] quotient,
-    output wire [31:0] remainder,
-    output wire        done
+    output reg  [31:0] quotient,
+    output reg  [31:0] remainder,
+    output reg         done
 );
     reg         signed_source_valid;
     wire        signed_dividend_ready;
@@ -23,28 +23,31 @@ module divider (
     wire [63:0] unsigned_result;
 
     reg         busy;
-    reg  [31:0] __dividend;
-    reg  [31:0] __divisor;
 
     always @(posedge clk) begin
-        if (reset) begin
+        if (reset | ~valid) begin
             signed_source_valid   <= 1'b0;
             unsigned_source_valid <= 1'b0;
             busy                  <= 1'b0;
-            __dividend            <= 32'b0;
-            __divisor             <= 32'b0;
-        end else if (~busy) begin
-            signed_source_valid   <= start & div_signed;
-            unsigned_source_valid <= start & ~div_signed;
-            busy                  <= start;
-            __dividend            <= dividend;
-            __divisor             <= divisor;
+            done                  <= 1'b0;
+        end else if (~busy & ~done) begin
+            signed_source_valid   <= div_signed;
+            unsigned_source_valid <= ~div_signed;
+            busy                  <= 1'b1;
+            done                  <= 1'b0;
+        end else if (~done) begin
+            if (signed_source_valid) begin
+                signed_source_valid <= ~(signed_divisor_ready & signed_dividend_ready);
+            end
+            if (unsigned_source_valid) begin
+                unsigned_source_valid <= ~(unsigned_divisor_ready & unsigned_dividend_ready);
+            end
+            busy      <= div_signed ? ~signed_result_valid : ~unsigned_result_valid;
+            done      <= div_signed ? signed_result_valid : unsigned_result_valid;
+            quotient  <= div_signed ? signed_result[63:32] : unsigned_result[63:32];
+            remainder <= div_signed ? signed_result[31:0] : unsigned_result[31:0];
         end else begin
-            signed_source_valid   <= signed_source_valid &
-                                    ~(signed_divisor_ready & signed_dividend_ready);
-            unsigned_source_valid <= unsigned_source_valid &
-                                    ~(unsigned_divisor_ready & unsigned_dividend_ready);
-            busy <= ~done;
+            done <= 1'b0;
         end
     end
 
@@ -52,10 +55,10 @@ module divider (
         .aclk                  (clk),
         .s_axis_divisor_tvalid (signed_source_valid),
         .s_axis_divisor_tready (signed_divisor_ready),
-        .s_axis_divisor_tdata  (__divisor),
+        .s_axis_divisor_tdata  (divisor),
         .s_axis_dividend_tvalid(signed_source_valid),
         .s_axis_dividend_tready(signed_dividend_ready),
-        .s_axis_dividend_tdata (__dividend),
+        .s_axis_dividend_tdata (dividend),
         .m_axis_dout_tvalid    (signed_result_valid),
         .m_axis_dout_tdata     (signed_result)
     );
@@ -64,16 +67,12 @@ module divider (
         .aclk                  (clk),
         .s_axis_divisor_tvalid (unsigned_source_valid),
         .s_axis_divisor_tready (unsigned_divisor_ready),
-        .s_axis_divisor_tdata  (__divisor),
+        .s_axis_divisor_tdata  (divisor),
         .s_axis_dividend_tvalid(unsigned_source_valid),
         .s_axis_dividend_tready(unsigned_dividend_ready),
-        .s_axis_dividend_tdata (__dividend),
+        .s_axis_dividend_tdata (dividend),
         .m_axis_dout_tvalid    (unsigned_result_valid),
         .m_axis_dout_tdata     (unsigned_result)
     );
-
-    assign quotient  = div_signed ? signed_result[63:32] : unsigned_result[63:32];
-    assign remainder = div_signed ? signed_result[31:0] : unsigned_result[31:0];
-    assign done      = div_signed ? signed_result_valid : unsigned_result_valid;
 endmodule
 

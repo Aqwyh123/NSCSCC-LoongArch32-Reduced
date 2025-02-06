@@ -111,7 +111,7 @@ module ALU (
     divider div (
         .clk       (clk),
         .reset     (reset),
-        .start     (valid & (op_div | op_mod | op_divu | op_modu)),
+        .valid     (valid & (op_div | op_mod | op_divu | op_modu)),
         .div_signed(op_div | op_mod),
         .dividend  (operand1),
         .divisor   (operand2),
