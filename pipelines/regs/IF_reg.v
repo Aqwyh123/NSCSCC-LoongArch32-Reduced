@@ -18,7 +18,9 @@ module IF_reg (
     output wire        IF_to_ID_valid,
     // data signals
     input  wire [31:0] pre_IF_PC,
-    output reg  [31:0] IF_PC
+    input  wire        pre_IF_ADEF,
+    output reg  [31:0] IF_PC,
+    output reg         IF_ADEF
 );
     assign IF_ready       = ~IF_valid | (IF_done & ID_ready);
     assign IF_to_ID_valid = IF_valid & IF_done;
@@ -40,7 +42,8 @@ module IF_reg (
                 IF_valid <= 1'b0;
             end
             if (pre_IF_to_IF_valid & IF_ready) begin
-                IF_PC <= pre_IF_PC;
+                IF_PC   <= pre_IF_PC;
+                IF_ADEF <= pre_IF_ADEF;
             end
         end
     end

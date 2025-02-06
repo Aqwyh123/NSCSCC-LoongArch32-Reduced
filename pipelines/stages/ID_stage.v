@@ -1,37 +1,41 @@
 `include "../../macros.vh"
 
 module ID_stage (
+    input  wire                            clk,
+    input  wire                            reset,
     // handshaking signals
-    input  wire                        valid,
-    input  wire                        done,
+    input  wire                            valid,
+    input  wire                            done,
     // data signals
-    input  wire [                31:0] inst,
-    input  wire [                31:0] PC,
-    output wire [                 4:0] GPR_read_num1,
-    input  wire [                31:0] rj_data,
-    output wire [                 4:0] GPR_read_num2,
-    input  wire [                31:0] rkd_data,
-    output wire                        ALU_src1_is_PC,
-    output wire                        ALU_src2_is_imm,
-    output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire                        MEM_access,
-    output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
-    output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    output wire                        GPR_write,
-    output wire [                 4:0] GPR_write_num,
-    output wire [`GPR_WRITE_WIDTH-1:0] GPR_write_src,
-    output wire                        CSR_write,
-    output wire [                31:0] CSR_write_mask,
-    output wire                        GPR1_use,
-    output wire                        GPR2_use,
-    output wire [  `GPR_NEW_WIDTH-1:0] GPR_new,
-    output wire                        branch_jump,
-    output wire [                31:0] target_PC,
-    output wire [                31:0] imm,
-    output wire                        __return,
-    output wire                        SYS,
-    output wire                        BRK,
-    output wire                        INE
+    input  wire [                    31:0] inst,
+    input  wire [                    31:0] PC,
+    output wire [                     4:0] GPR_read_num1,
+    input  wire [                    31:0] rj_data,
+    output wire [                     4:0] GPR_read_num2,
+    input  wire [                    31:0] rkd_data,
+    output wire [                    31:0] CNT_data,
+    output wire                            ALU_src1_is_PC,
+    output wire                            ALU_src2_is_imm,
+    output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                            MEM_access,
+    output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
+    output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire                            GPR_write,
+    output wire [                     4:0] GPR_write_num,
+    output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
+    output wire [   `CSR_NUMBER_WIDTH-1:0] CSR_number,
+    output wire                            CSR_write,
+    output wire [                    31:0] CSR_write_mask,
+    output wire                            GPR1_use,
+    output wire                            GPR2_use,
+    output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
+    output wire                            branch_jump,
+    output wire [                    31:0] target_PC,
+    output wire [                    31:0] imm,
+    output wire                            __return,
+    output wire                            SYS,
+    output wire                            BRK,
+    output wire                            INE
 );
     wire jump;
     wire [`BRANCH_WIDTH-1:0] branch;
@@ -39,12 +43,12 @@ module ID_stage (
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
     wire GPR_read_src2_is_rd;
-    wire GPR_write_dst_is_r1;
+    wire CNT_is_high;
+    wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
+    wire [31:0] CNT_high;
+    wire [31:0] CNT_low;
+    wire CSR_number_is_TID;
     wire CSR_mask;
-    wire __return__;
-    wire syscall;
-    wire __break;
-    wire not_existed;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
     wire [4:0] rj = inst[`RJ_MSB:`RJ_LSB];
@@ -65,12 +69,13 @@ module ID_stage (
 
     ID id (
         .instruction        (inst),
+        .jump               (jump),
         .branch             (branch),
         .branch_reverse     (branch_reverse),
-        .jump               (jump),
         .imm_src            (imm_src),
         .offs_src           (offs_src),
         .GPR_read_src2_is_rd(GPR_read_src2_is_rd),
+        .CNT_is_high        (CNT_is_high),
         .ALU_src1_is_PC     (ALU_src1_is_PC),
         .ALU_src2_is_imm    (ALU_src2_is_imm),
         .ALU_operation      (ALU_operation),
@@ -78,14 +83,15 @@ module ID_stage (
         .MEM_read           (MEM_read),
         .MEM_write          (MEM_write),
         .GPR_write          (GPR_write),
-        .GPR_write_dst_is_r1(GPR_write_dst_is_r1),
+        .GPR_write_dst      (GPR_write_dst),
         .GPR_write_src      (GPR_write_src),
+        .CSR_number_is_TID  (CSR_number_is_TID),
         .CSR_write          (CSR_write),
         .CSR_mask           (CSR_mask),
-        .__return           (__return__),
-        .syscall            (syscall),
-        .__break            (__break),
-        .not_existed        (not_existed),
+        .__return           (__return),
+        .syscall            (SYS),
+        .__break            (BRK),
+        .not_existed        (INE),
         .GPR1_use           (GPR1_use),
         .GPR2_use           (GPR2_use),
         .GPR_new            (GPR_new)
@@ -93,6 +99,15 @@ module ID_stage (
 
     assign GPR_read_num1 = rj;
     assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
+
+    StableCounter stable_counter (
+        .clk  (clk),
+        .reset(reset),
+        .high (CNT_high),
+        .low  (CNT_low)
+    );
+
+    assign CNT_data = CNT_is_high ? CNT_high : CNT_low;
 
     assign rj_eq_rd = rj_data == rkd_data;
     assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
@@ -124,12 +139,10 @@ module ID_stage (
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
 
-    assign GPR_write_num = GPR_write_dst_is_r1 ? 5'd1 : rd;
+    assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
+                           GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
+
+    assign CSR_number = CSR_number_is_TID ? `CSR_TID : i14;
 
     assign CSR_write_mask = CSR_mask ? rj_data : 32'hffffffff;
-
-    assign __return = __return__;
-    assign SYS = syscall;
-    assign BRK = __break;
-    assign INE = not_existed;
 endmodule

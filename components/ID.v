@@ -1,31 +1,33 @@
 `include "../macros.vh"
 
 module ID (
-    input  wire [                31:0] instruction,
-    output wire [   `BRANCH_WIDTH-1:0] branch,
-    output wire                        branch_reverse,
-    output wire                        jump,
-    output wire [  `IMM_SRC_WIDTH-1:0] imm_src,
-    output wire [ `OFFS_SRC_WIDTH-1:0] offs_src,
-    output wire                        GPR_read_src2_is_rd,  // default : rk
-    output wire                        ALU_src1_is_PC,       // default : rj
-    output wire                        ALU_src2_is_imm,      // default : rk/rd
-    output wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire                        MEM_access,
-    output wire [ `MEM_READ_WIDTH-1:0] MEM_read,
-    output wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    output wire                        GPR_write,
-    output wire                        GPR_write_dst_is_r1,  // default : rd
-    output wire [`GPR_WRITE_WIDTH-1:0] GPR_write_src,
-    output wire                        CSR_write,
-    output wire                        CSR_mask,
-    output wire                        __return,
-    output wire                        syscall,
-    output wire                        __break,
-    output wire                        not_existed,
-    output wire                        GPR1_use,
-    output wire                        GPR2_use,
-    output wire [  `GPR_NEW_WIDTH-1:0] GPR_new
+    input  wire [                    31:0] instruction,
+    output wire                            jump,
+    output wire [       `BRANCH_WIDTH-1:0] branch,
+    output wire                            branch_reverse,
+    output wire [      `IMM_SRC_WIDTH-1:0] imm_src,
+    output wire [     `OFFS_SRC_WIDTH-1:0] offs_src,
+    output wire                            GPR_read_src2_is_rd,  // default : rk
+    output wire                            CNT_is_high,          // default : low
+    output wire                            ALU_src1_is_PC,       // default : rj
+    output wire                            ALU_src2_is_imm,      // default : rk/rd
+    output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                            MEM_access,
+    output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
+    output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire                            GPR_write,
+    output wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst,        // default : rd
+    output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
+    output wire                            CSR_number_is_TID,    // default : csr
+    output wire                            CSR_write,
+    output wire                            CSR_mask,
+    output wire                            __return,
+    output wire                            syscall,
+    output wire                            __break,
+    output wire                            not_existed,
+    output wire                            GPR1_use,
+    output wire                            GPR2_use,
+    output wire [      `GPR_NEW_WIDTH-1:0] GPR_new
 );
     wire [ 5:0] instr_31_26 = instruction[31:26];
     wire [ 1:0] instr_25_24 = instruction[25:24];
@@ -102,6 +104,18 @@ module ID (
         .out(instr_4_0_d)
     );
 
+    wire rdcntid_w = instr_31_26_d[`RDCNTID_W_31_26] & instr_25_24_d[`RDCNTID_W_25_24] &
+                     instr_23_22_d[`RDCNTID_W_23_22] & instr_21_20_d[`RDCNTID_W_21_20] &
+                     instr_19_15_d[`RDCNTID_W_19_15] & instr_14_10_d[`RDCNTID_W_14_10] &
+                     instr_4_0_d[`RDCNTID_W_4_0];
+    wire rdcntvl_w = instr_31_26_d[`RDCNTVL_W_31_26] & instr_25_24_d[`RDCNTVL_W_25_24] &
+                     instr_23_22_d[`RDCNTVL_W_23_22] & instr_21_20_d[`RDCNTVL_W_21_20] &
+                     instr_19_15_d[`RDCNTVL_W_19_15] & instr_14_10_d[`RDCNTVL_W_14_10] &
+                     instr_9_5_d[`RDCNTVL_W_9_5];
+    wire rdcntvh_w = instr_31_26_d[`RDCNTVH_W_31_26] & instr_25_24_d[`RDCNTVH_W_25_24] &
+                     instr_23_22_d[`RDCNTVH_W_23_22] & instr_21_20_d[`RDCNTVH_W_21_20] &
+                     instr_19_15_d[`RDCNTVH_W_19_15] & instr_14_10_d[`RDCNTVH_W_14_10] &
+                     instr_9_5_d[`RDCNTVH_W_9_5];
     wire add_w  = instr_31_26_d[`ADD_W_31_26] & instr_25_24_d[`ADD_W_25_24] &
                   instr_23_22_d[`ADD_W_23_22] & instr_21_20_d[`ADD_W_21_20] &
                   instr_19_15_d[`ADD_W_19_15];
@@ -220,13 +234,7 @@ module ID (
     wire bltu = instr_31_26_d[`BLTU_31_26];
     wire bgeu = instr_31_26_d[`BGEU_31_26];
 
-    assign not_existed = ~add_w & ~sub_w & ~slt & ~sltu & ~__nor & ~__and & ~__or & ~__xor &
-                         ~sll_w & ~srl_w & ~sra_w & ~mul_w & ~mulh_w & ~mulhu_wu & ~div_w & ~mod_w &
-                         ~div_wu & ~mod_wu & ~__break & ~syscall & ~slli_w & ~srli_w & ~srai_w &
-                         ~slti & ~sltui & ~addi_w & ~andi & ~ori & ~xori & ~csrrd & ~csrwr &
-                         ~csrxchg & ~ertn & ~lu12i_w & ~pcaddu12i &
-                         ~ld_b & ~ld_h & ~ld_w & ~st_b & ~st_h & ~st_w & ~ld_bu & ~ld_hu & ~jirl &
-                         ~b & ~bl & ~beq & ~bne & ~blt & ~bge & ~bltu & ~bgeu;
+    assign jump = jirl;
 
     assign branch[`BRANCH_UNCOND] = b | bl;
     assign branch[`BRANCH_EQ] = beq | bne;
@@ -235,30 +243,30 @@ module ID (
 
     assign branch_reverse = bne | bge | bgeu;
 
-    assign jump = jirl;
-
-    // ui5 = ui12[4:0], csr = si14[13:0]
+    // ui5 = ui12[4:0]
     assign imm_src[`IMM_SRC_4] = jirl | bl;
     assign imm_src[`IMM_SRC_UI12] = slli_w | srli_w | srai_w | andi | ori | xori;
     assign imm_src[`IMM_SRC_SI12] = slti | sltui | addi_w |
                                     ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
-    assign imm_src[`IMM_SRC_SI14] = csrrd | csrwr | csrxchg;
+    assign imm_src[`IMM_SRC_SI14] = 1'b0;
     assign imm_src[`IMM_SRC_SI20] = lu12i_w | pcaddu12i;
 
     assign offs_src[`OFFS_SRC_16] = jirl | beq | bne | blt | bge | bltu | bgeu;
     assign offs_src[`OFFS_SRC_21] = 1'b0;
     assign offs_src[`OFFS_SRC_26] = b | bl;
 
+    assign GPR_read_src2_is_rd = st_b | st_h | st_w | beq | bne | blt | bge | bltu | bgeu |
+                                 csrwr | csrxchg;
+
+    assign CNT_is_high = rdcntvh_w;
+
     assign ALU_src1_is_PC = jirl | bl | pcaddu12i;
     assign ALU_src2_is_imm = slli_w | srli_w | srai_w | slti | sltui | addi_w | andi | ori | xori |
-                             lu12i_w | pcaddu12i |
-                             ld_b | ld_h | ld_w | ld_bu | ld_hu |
-                             st_b | st_h | st_w |
-                             jirl | bl;
+                             lu12i_w | pcaddu12i | ld_b | ld_h | ld_w | ld_bu | ld_hu |
+                             st_b | st_h | st_w | jirl | bl;
 
-    assign ALU_operation[`ALU_OP_ADD] = add_w | addi_w |
-                                        ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu |
-                                        jirl | bl | pcaddu12i;
+    assign ALU_operation[`ALU_OP_ADD] = add_w | addi_w | jirl | bl | pcaddu12i |
+                                        ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
     assign ALU_operation[`ALU_OP_SUB] = sub_w;
     assign ALU_operation[`ALU_OP_SLT] = slt | slti;
     assign ALU_operation[`ALU_OP_SLTU] = sltu | sltui;
@@ -278,9 +286,6 @@ module ID (
     assign ALU_operation[`ALU_OP_DIVU] = div_wu;
     assign ALU_operation[`ALU_OP_MODU] = mod_wu;
 
-    assign GPR_read_src2_is_rd = st_b | st_h | st_w | beq | bne | blt | bge | bltu | bgeu |
-                                 csrwr | csrxchg;
-
     assign MEM_access = ld_b | ld_h | ld_w | ld_bu | ld_hu | st_b | st_h | st_w;
 
     assign MEM_read[`MEM_READ_BYTE] = ld_b;
@@ -293,10 +298,28 @@ module ID (
     assign MEM_write[`MEM_WRITE_HALF] = st_h;
     assign MEM_write[`MEM_WRITE_WORD] = st_w;
 
-    assign GPR_write = ~st_b & ~st_h & ~st_w & ~b & ~beq & ~bne & ~blt & ~bge & ~bltu & ~bgeu &
-                       ~syscall & ~__break & ~ertn;
+    assign GPR_write = jirl | bl | lu12i_w | pcaddu12i | rdcntvl_w | rdcntvh_w | rdcntid_w |
+                       add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
+                       andi | ori | xori | sll_w | srl_w | sra_w |
+                       mul_w | mulh_w | mulhu_wu | div_w | mod_w | div_wu | mod_wu |
+                       slli_w | srli_w | srai_w | slti | sltui | addi_w |
+                       ld_b | ld_h | ld_w | ld_bu | ld_hu | csrrd | csrwr | csrxchg;
 
-    assign GPR_write_dst_is_r1 = bl;
+    assign GPR_write_dst[`GPR_WRITE_DST_R1] = bl;
+    assign GPR_write_dst[`GPR_WRITE_DST_RJ] = rdcntid_w;
+
+    assign GPR_write_src[`GPR_WRITE_SRC_LINK] = jirl | bl;
+    assign GPR_write_src[`GPR_WRITE_SRC_LUI] = lu12i_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_CNT] = rdcntvl_w | rdcntvh_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_ALU] = add_w | sub_w | slt | sltu | jirl | bl | lu12i_w |
+                                               __and | __nor | __or | __xor | andi | ori | xori |
+                                               sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
+                                               div_w | mod_w | div_wu | mod_wu | pcaddu12i |
+                                               slli_w | srli_w | srai_w | slti | sltui | addi_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_MEM] = ld_b | ld_h | ld_w | ld_bu | ld_hu;
+    assign GPR_write_src[`GPR_WRITE_SRC_CSR] = csrrd | csrwr | csrxchg | rdcntid_w;
+
+    assign CSR_number_is_TID = rdcntid_w;
 
     assign CSR_write = csrwr | csrxchg;
 
@@ -304,29 +327,33 @@ module ID (
 
     assign __return = ertn;
 
-    assign GPR_write_src[`GPR_WRITE_ALU] = add_w | sub_w | slt | sltu | jirl | bl | lu12i_w |
-                                           __and | __nor | __or | __xor |
-                                           sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
-                                           div_w | mod_w | div_wu | mod_wu |
-                                           slli_w | srli_w | srai_w |
-                                           slti | sltui | addi_w | andi | ori | xori | pcaddu12i;
-    assign GPR_write_src[`GPR_WRITE_MEM] = ld_b | ld_h | ld_w | ld_bu | ld_hu;
-    assign GPR_write_src[`GPR_WRITE_CSR] = csrrd | csrwr | csrxchg;
+    assign not_existed = ~rdcntid_w & ~rdcntvl_w & ~rdcntvh_w &
+                         ~add_w & ~sub_w & ~slt & ~sltu & ~__nor & ~__and & ~__or & ~__xor &
+                         ~sll_w & ~srl_w & ~sra_w & ~mul_w & ~mulh_w & ~mulhu_wu & ~div_w & ~mod_w &
+                         ~div_wu & ~mod_wu & ~__break & ~syscall & ~slli_w & ~srli_w & ~srai_w &
+                         ~slti & ~sltui & ~addi_w & ~andi & ~ori & ~xori & ~csrrd & ~csrwr &
+                         ~csrxchg & ~ertn & ~lu12i_w & ~pcaddu12i &
+                         ~ld_b & ~ld_h & ~ld_w & ~st_b & ~st_h & ~st_w & ~ld_bu & ~ld_hu & ~jirl &
+                         ~b & ~bl & ~beq & ~bne & ~blt & ~bge & ~bltu & ~bgeu;
 
-    assign GPR1_use = ~__break & ~syscall & ~ertn & ~csrrd & ~csrwr &
-                      ~lu12i_w & ~pcaddu12i & ~b & ~bl;
+    assign GPR1_use = add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
+                      sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
+                      div_w | mod_w | div_wu | mod_wu | slli_w | srli_w | srai_w |
+                      slti | sltui | addi_w | andi | ori | xori |
+                      ld_b | ld_h | ld_w | ld_bu | ld_hu | st_b | st_h | st_w |
+                      beq | bne | blt | bge | bltu | bgeu | jirl | csrxchg;
     assign GPR2_use = beq | bne | blt | bge | bltu | bgeu |
                       add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
                       sll_w | srl_w | sra_w | st_b | st_h | st_w |
                       mul_w | mulh_w | mulhu_wu | div_w | mod_w | div_wu | mod_wu |
                       csrwr | csrxchg;
 
-    assign GPR_new[`GPR_NEW_ID] = jirl | bl;
-    assign GPR_new[`GPR_NEW_EXE] = lu12i_w;
+    assign GPR_new[`GPR_NEW_EXE] = jirl | bl | lu12i_w | rdcntvl_w | rdcntvh_w;
     assign GPR_new[`GPR_NEW_MEM] = add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
                                    sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
                                    div_w | mod_w | div_wu | mod_wu | slli_w | srli_w | srai_w |
                                    slti | sltui | addi_w | andi | ori | xori | pcaddu12i;
-    assign GPR_new[`GPR_NEW_WB] = ld_b | ld_h | ld_w | ld_bu | ld_hu | csrrd | csrwr | csrxchg;
+    assign GPR_new[`GPR_NEW_WB] = ld_b | ld_h | ld_w | ld_bu | ld_hu |
+                                  csrrd | csrwr | csrxchg | rdcntid_w;
 endmodule
 

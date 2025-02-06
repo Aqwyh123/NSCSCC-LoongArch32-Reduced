@@ -82,16 +82,22 @@
 `define MEM_WRITE_HALF 1
 `define MEM_WRITE_WORD 2
 
-`define GPR_WRITE_WIDTH 3
-`define GPR_WRITE_ALU 0
-`define GPR_WRITE_MEM 1
-`define GPR_WRITE_CSR 2
+`define GPR_WRITE_SRC_WIDTH 6
+`define GPR_WRITE_SRC_LINK 0
+`define GPR_WRITE_SRC_LUI 1
+`define GPR_WRITE_SRC_CNT 2
+`define GPR_WRITE_SRC_ALU 3
+`define GPR_WRITE_SRC_MEM 4
+`define GPR_WRITE_SRC_CSR 5
 
-`define GPR_NEW_WIDTH 4
-`define GPR_NEW_ID 0
-`define GPR_NEW_EXE 1
-`define GPR_NEW_MEM 2
-`define GPR_NEW_WB 3
+`define GPR_WRITE_DST_WIDTH 2
+`define GPR_WRITE_DST_R1 0
+`define GPR_WRITE_DST_RJ 1
+
+`define GPR_NEW_WIDTH 3
+`define GPR_NEW_EXE 0
+`define GPR_NEW_MEM 1
+`define GPR_NEW_WB 2
 
 `define EXCEPTION_WIDTH 16
 `define EXCEPTION_INT 0
@@ -209,6 +215,30 @@
 `define CSR_TICLR_CLR 0
 `define CSR_TICLR_0 31:1
 `define CSR_TICLR_0_WIDTH 31
+
+`define RDCNTID_W_31_26 6'b000000
+`define RDCNTID_W_25_24 2'b00
+`define RDCNTID_W_23_22 2'b00
+`define RDCNTID_W_21_20 2'b00
+`define RDCNTID_W_19_15 5'b00000
+`define RDCNTID_W_14_10 5'b11000
+`define RDCNTID_W_4_0 5'b00000
+
+`define RDCNTVL_W_31_26 6'b000000
+`define RDCNTVL_W_25_24 2'b00
+`define RDCNTVL_W_23_22 2'b00
+`define RDCNTVL_W_21_20 2'b00
+`define RDCNTVL_W_19_15 5'b00000
+`define RDCNTVL_W_14_10 5'b11000
+`define RDCNTVL_W_9_5 5'b00000
+
+`define RDCNTVH_W_31_26 6'b000000
+`define RDCNTVH_W_25_24 2'b00
+`define RDCNTVH_W_23_22 2'b00
+`define RDCNTVH_W_21_20 2'b00
+`define RDCNTVH_W_19_15 5'b00000
+`define RDCNTVH_W_14_10 5'b11001
+`define RDCNTVH_W_9_5 5'b00000
 
 `define ADD_W_31_26 6'b000000
 `define ADD_W_25_24 2'b00

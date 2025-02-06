@@ -8,8 +8,7 @@ module IF_stage (
     input  wire        branch_jump,
     input  wire [31:0] target_PC,
     output wire [31:0] next_PC,
-    output wire [31:0] seq_PC,
-    output wire        ADEF
+    output wire [31:0] seq_PC
 );
     assign done = 1'b1;
 
@@ -24,5 +23,4 @@ module IF_stage (
     );
 
     assign next_PC = branch_jump ? target_PC : seq_PC;
-    assign ADEF    = |next_PC[1:0];
 endmodule
