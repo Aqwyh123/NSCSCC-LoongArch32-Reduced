@@ -18,6 +18,7 @@ module MEM_reg (
     input  wire [                    31:0] EXE_CNT_data,
     input  wire [                    31:0] EXE_ALU_result,
     input  wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
+    input  wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
     input  wire [                    31:0] EXE_MEM_addr,
     input  wire                            EXE_GPR_write,
     input  wire [                     4:0] EXE_GPR_write_num,
@@ -38,6 +39,7 @@ module MEM_reg (
     output reg  [                    31:0] MEM_CNT_data,
     output reg  [                    31:0] MEM_ALU_result,
     output reg  [     `MEM_READ_WIDTH-1:0] MEM_MEM_read,
+    output reg  [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write,
     output reg  [                    31:0] MEM_MEM_addr,
     output reg                             MEM_GPR_write,
     output reg  [                     4:0] MEM_GPR_write_num,
@@ -72,6 +74,7 @@ module MEM_reg (
                 MEM_CNT_data       <= EXE_CNT_data;
                 MEM_ALU_result     <= EXE_ALU_result;
                 MEM_MEM_read       <= EXE_MEM_read;
+                MEM_MEM_write      <= EXE_MEM_write;
                 MEM_MEM_addr       <= EXE_MEM_addr;
                 MEM_GPR_write      <= EXE_GPR_write;
                 MEM_GPR_write_num  <= EXE_GPR_write_num;

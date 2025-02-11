@@ -4,16 +4,24 @@ module mycpu_top (
     input  wire        clk,
     input  wire        resetn,
     // inst sram interface
-    output wire        inst_sram_en,
-    output wire [ 3:0] inst_sram_we,
+    output wire        inst_sram_req,
+    output wire        inst_sram_wr,
+    output wire [ 1:0] inst_sram_size,
     output wire [31:0] inst_sram_addr,
+    output wire [ 3:0] inst_sram_wstrb,
     output wire [31:0] inst_sram_wdata,
+    input  wire        inst_sram_addr_ok,
+    input  wire        inst_sram_data_ok,
     input  wire [31:0] inst_sram_rdata,
     // data sram interface
-    output wire        data_sram_en,
-    output wire [ 3:0] data_sram_we,
+    output wire        data_sram_req,
+    output wire        data_sram_wr,
+    output wire [ 1:0] data_sram_size,
     output wire [31:0] data_sram_addr,
+    output wire [ 3:0] data_sram_wstrb,
     output wire [31:0] data_sram_wdata,
+    input  wire        data_sram_addr_ok,
+    input  wire        data_sram_data_ok,
     input  wire [31:0] data_sram_rdata,
     // trace debug interface
     output wire [31:0] debug_wb_pc,
@@ -27,15 +35,13 @@ module mycpu_top (
     end
 
     wire [                    31:0] PC;
-    wire                            interupt;
     wire [    `EXCEPTION_WIDTH-1:0] exception;
-    wire                            enter;
     wire                            __return;
     wire [                    31:0] entry;
     wire [                    31:0] raddr;
 
     wire [                    31:0] pre_IF_PC;
-    wire                            pre_IF_ADEF;
+    wire                            pre_IF_to_IF_valid;
 
     wire                            IF_done;
     wire                            IF_valid;
@@ -43,18 +49,28 @@ module mycpu_top (
     wire                            IF_to_ID_valid;
 
     wire [                    31:0] IF_PC;
+    wire [                    31:0] IF_inst;
     // wire [    `EXCEPTION_WIDTH-1:0] IF_exception;
     wire                            IF_ADEF;
-
-    wire [                    31:0] IF_inst;
-    wire [                    31:0] IF_seq_PC;
 
     wire                            ID_done;
     wire                            ID_valid;
     wire                            ID_ready;
     wire                            ID_to_EXE_valid;
 
+    wire [                    31:0] ID_PC;
+    wire [                    31:0] ID_inst;
+    // wire [    `EXCEPTION_WIDTH-1:0] ID_exception;
+    wire                            ID_return;
+    wire                            ID_irq;
+    wire                            ID_INT;
+    wire                            ID_ADEF;
+    wire                            ID_SYS;
+    wire                            ID_BRK;
+    wire                            ID_INE;
+
     wire                            ID_stall;
+    wire                            ID_bj_stall;
     wire                            ID_MEM_GPR1_A;
     wire                            ID_MEM_GPR2_A;
     wire                            ID_MEM_GPR1_T;
@@ -73,15 +89,6 @@ module mycpu_top (
     wire                            ID_MEM_CSR_3;
     wire                            ID_WB_CSR_3;
 
-    wire [                    31:0] ID_PC;
-    // wire [`EXCEPTION_WIDTH-1:0] ID_exception;
-    wire                            ID_INT;
-    wire                            ID_ADEF;
-    wire                            ID_SYS;
-    wire                            ID_BRK;
-    wire                            ID_INE;
-
-    wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new;
     wire                            ID_GPR1_use;
     wire                            ID_GPR2_use;
     wire [                     4:0] ID_GPR_read_num1;
@@ -90,25 +97,25 @@ module mycpu_top (
     wire [                    31:0] ID_GPR_read_data2;
     wire [                    31:0] ID_rj_data;
     wire [                    31:0] ID_rkd_data;
+    wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new;
     wire                            ID_GPR_write;
     wire [                     4:0] ID_GPR_write_num;
     wire [`GPR_WRITE_SRC_WIDTH-1:0] ID_GPR_write_src;
     wire [                    31:0] ID_link;
+    wire [                    31:0] ID_imm;
     wire [                    31:0] ID_CNT_data;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] ID_CSR_number;
     wire                            ID_CSR_write;
     wire [                    31:0] ID_CSR_write_mask;
-    wire                            ID_return;
 
-    wire [                    31:0] ID_inst;
-    wire                            ID_branch_jump;
+    wire                            ID_jump;
+    wire [       `BRANCH_WIDTH-1:0] ID_branch;
+    wire                            ID_bj_taken;
     wire [                    31:0] ID_target_PC;
-    wire [                    31:0] ID_imm;
     wire                            ID_ALU_src1_is_PC;
     wire                            ID_ALU_src2_is_imm;
     wire [       `ALU_OP_WIDTH-1:0] ID_ALU_operation;
-    wire                            ID_MEM_access;
     wire [     `MEM_READ_WIDTH-1:0] ID_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] ID_MEM_write;
 
@@ -119,6 +126,7 @@ module mycpu_top (
 
     wire [                    31:0] EXE_PC;
     wire [    `EXCEPTION_WIDTH-1:0] EXE_exception;
+    wire                            EXE_return;
     wire                            EXE_INT;
     wire                            EXE_ADEF;
     wire                            EXE_ALE;
@@ -126,33 +134,28 @@ module mycpu_top (
     wire                            EXE_BRK;
     wire                            EXE_INE;
 
-    wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new;
     wire [                    31:0] EXE_rj_data;
     wire [                    31:0] EXE_rkd_data;
+    wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new;
     wire                            EXE_GPR_write;
     wire [                     4:0] EXE_GPR_write_num;
     wire [`GPR_WRITE_SRC_WIDTH-1:0] EXE_GPR_write_src;
     wire [                    31:0] EXE_link;
     wire [                    31:0] EXE_imm;
     wire [                    31:0] EXE_CNT_data;
+    wire [                    31:0] EXE_ALU_result;
     wire [                    31:0] EXE_forward_data;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_number;
     wire                            EXE_CSR_write;
     wire [                    31:0] EXE_CSR_write_mask;
-    wire                            EXE_return;
 
     wire                            EXE_ALU_src1_is_PC;
     wire                            EXE_ALU_src2_is_imm;
     wire [       `ALU_OP_WIDTH-1:0] EXE_ALU_operation;
-    wire                            EXE_MEM_access;
     wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write;
-    wire                            EXE_MEM_enable;
-    wire [                     3:0] EXE_MEM_write_enable;
     wire [                    31:0] EXE_MEM_addr;
-    wire [                    31:0] EXE_MEM_write_data;
-    wire [                    31:0] EXE_ALU_result;
 
     wire                            MEM_done;
     wire                            MEM_valid;
@@ -161,6 +164,7 @@ module mycpu_top (
 
     wire [                    31:0] MEM_PC;
     wire [    `EXCEPTION_WIDTH-1:0] MEM_exception;
+    wire                            MEM_return;
     wire                            MEM_INT;
     wire                            MEM_ADEF;
     wire                            MEM_ALE;
@@ -168,24 +172,23 @@ module mycpu_top (
     wire                            MEM_BRK;
     wire                            MEM_INE;
 
-    wire [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new;
     wire [                    31:0] MEM_rd_data;
+    wire [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new;
     wire                            MEM_GPR_write;
     wire [                     4:0] MEM_GPR_write_num;
     wire [`GPR_WRITE_SRC_WIDTH-1:0] MEM_GPR_write_src;
     wire [                    31:0] MEM_CNT_data;
     wire [                    31:0] MEM_ALU_result;
+    wire [                    31:0] MEM_MEM_result;
     wire [                    31:0] MEM_forward_data;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_number;
     wire                            MEM_CSR_write;
     wire [                    31:0] MEM_CSR_write_mask;
-    wire                            MEM_return;
 
     wire [     `MEM_READ_WIDTH-1:0] MEM_MEM_read;
+    wire [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write;
     wire [                    31:0] MEM_MEM_addr;
-    wire [                    31:0] MEM_MEM_read_data;
-    wire [                    31:0] MEM_MEM_result;
 
     wire                            WB_done;
     wire                            WB_valid;
@@ -193,6 +196,7 @@ module mycpu_top (
 
     wire [                    31:0] WB_PC;
     wire [    `EXCEPTION_WIDTH-1:0] WB_exception;
+    wire                            WB_return;
     wire                            WB_INT;
     wire                            WB_ADEF;
     wire                            WB_ALE;
@@ -207,76 +211,78 @@ module mycpu_top (
     wire [`GPR_WRITE_SRC_WIDTH-1:0] WB_GPR_write_src;
     wire [                    31:0] WB_GPR_write_data;
     wire [                    31:0] WB_CNT_data;
-    // wire [                31:0] WB_forward_data;
-
     wire [                    31:0] WB_ALU_result;
     wire [                    31:0] WB_MEM_result;
+    // wire [                31:0] WB_forward_data;
+
     wire [   `CSR_NUMBER_WIDTH-1:0] WB_CSR_number;
     wire [                    31:0] WB_CSR_read_data;
     wire [                    31:0] WB_CSR_write_mask;
     wire                            WB_CSR_write;
     wire                            WB_CSR_write_enable;
     wire [                    31:0] WB_CSR_write_data;
-    wire                            WB_return;
 
     wire [                    31:0] WB_MEM_addr;
-
-    assign inst_sram_en    = ~reset & IF_ready & ~pre_IF_ADEF;
-    assign inst_sram_we    = 4'b0;
-    assign inst_sram_addr  = pre_IF_PC;
-    assign inst_sram_wdata = 32'b0;
-
-    assign pre_IF_ADEF     = |inst_sram_addr[1:0];
 
     IF_reg if_reg (
         .clk               (clk),
         .reset             (reset),
-        .enter             (enter),
+        .exception         (|exception),
         .__return          (__return),
+        .bj_taken          (ID_bj_taken),
         .entry             (entry),
         .raddr             (raddr),
-        .cancel            (ID_branch_jump),
+        .target            (ID_target_PC),
         .IF_done           (IF_done),
         .ID_ready          (ID_ready),
-        .pre_IF_to_IF_valid(1'b1),
+        .pre_IF_to_IF_valid(pre_IF_to_IF_valid),
         .IF_valid          (IF_valid),
         .IF_ready          (IF_ready),
         .IF_to_ID_valid    (IF_to_ID_valid),
         .pre_IF_PC         (pre_IF_PC),
-        .pre_IF_ADEF       (pre_IF_ADEF),
-        .IF_PC             (IF_PC),
-        .IF_ADEF           (IF_ADEF)
+        .IF_PC             (IF_PC)
     );
 
     IF_stage if_stage (
-        .done       (IF_done),
-        .PC         (IF_PC),
-        .branch_jump(ID_branch_jump),
-        .target_PC  (ID_target_PC),
-        .next_PC    (pre_IF_PC),
-        .seq_PC     (IF_seq_PC)
+        .clk               (clk),
+        .reset             (reset),
+        .flush             (|exception | __returnn | ID_bj_taken),
+        .IF_valid          (IF_valid),
+        .IF_ready          (IF_ready),
+        .ID_ready          (ID_ready),
+        .pre_IF_to_IF_valid(pre_IF_to_IF_valid),
+        .IF_done           (IF_done),
+        .inst_sram_req     (inst_sram_req),
+        .inst_sram_wr      (inst_sram_wr),
+        .inst_sram_size    (inst_sram_size),
+        .inst_sram_addr    (inst_sram_addr),
+        .inst_sram_wstrb   (inst_sram_wstrb),
+        .inst_sram_wdata   (inst_sram_wdata),
+        .inst_sram_addr_ok (inst_sram_addr_ok),
+        .inst_sram_data_ok (inst_sram_data_ok),
+        .inst_sram_rdata   (inst_sram_rdata),
+        .PC                (IF_PC),
+        .pre_IF_PC         (pre_IF_PC),
+        .inst              (IF_inst),
+        .ADEF              (IF_ADEF)
     );
 
-    assign IF_inst = inst_sram_rdata;
     // assign IF_exception = {9'b0, IF_ADEF, 6'b0};
 
     ID_reg id_reg (
         .clk            (clk),
         .reset          (reset),
-        .flush          (enter | __return),
+        .flush          (|exception | __return),
         .ID_done        (ID_done),
         .EXE_ready      (EXE_ready),
         .IF_to_ID_valid (IF_to_ID_valid),
         .ID_valid       (ID_valid),
         .ID_ready       (ID_ready),
         .ID_to_EXE_valid(ID_to_EXE_valid),
-        .cancel         (ID_branch_jump),
         .IF_PC          (IF_PC),
-        .IF_link        (IF_seq_PC),
         .IF_inst        (IF_inst),
         .IF_ADEF        (IF_ADEF),
         .ID_PC          (ID_PC),
-        .ID_link        (ID_link),
         .ID_inst        (ID_inst),
         .ID_ADEF        (ID_ADEF)
     );
@@ -285,8 +291,10 @@ module mycpu_top (
         .clk            (clk),
         .reset          (reset),
         .valid          (ID_valid),
-        .done           (ID_done),
+        .bj_stall       (ID_bj_stall),
         .inst           (ID_inst),
+        .jump           (ID_jump),
+        .branch         (ID_branch),
         .PC             (ID_PC),
         .GPR_read_num1  (ID_GPR_read_num1),
         .rj_data        (ID_rj_data),
@@ -296,7 +304,6 @@ module mycpu_top (
         .ALU_src1_is_PC (ID_ALU_src1_is_PC),
         .ALU_src2_is_imm(ID_ALU_src2_is_imm),
         .ALU_operation  (ID_ALU_operation),
-        .MEM_access     (ID_MEM_access),
         .MEM_read       (ID_MEM_read),
         .MEM_write      (ID_MEM_write),
         .GPR_write      (ID_GPR_write),
@@ -308,9 +315,10 @@ module mycpu_top (
         .GPR1_use       (ID_GPR1_use),
         .GPR2_use       (ID_GPR2_use),
         .GPR_new        (ID_GPR_new),
-        .branch_jump    (ID_branch_jump),
+        .bj_taken       (ID_bj_taken),
         .target_PC      (ID_target_PC),
         .imm            (ID_imm),
+        .link           (ID_link),
         .__return       (ID_return),
         .SYS            (ID_SYS),
         .BRK            (ID_BRK),
@@ -328,14 +336,34 @@ module mycpu_top (
         .write_data  (WB_GPR_write_data)
     );
 
-    assign ID_rj_data = ID_EXE_GPR1_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
-                        ID_MEM_GPR1_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
+    assign ID_rj_data = EXE_valid & ID_EXE_GPR1_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
+                        MEM_valid & ID_MEM_GPR1_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
                         MEM_forward_data : ID_GPR_read_data1;
-    assign ID_rkd_data = ID_EXE_GPR2_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
-                         ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
+    assign ID_rkd_data = EXE_valid & ID_EXE_GPR2_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
+                         MEM_valid & ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
                          MEM_forward_data : ID_GPR_read_data2;
 
-    assign ID_EXE_CSR_1 = EXE_CSR_write  &
+    assign ID_INT = ID_irq & ~(EXE_valid & (ID_EXE_CSR_1 | ID_EXE_CSR_2 | ID_EXE_CSR_3) |
+                               MEM_valid & (ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
+                               WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3));
+
+    // assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
+
+    assign ID_EXE_GPR1_A = |EXE_GPR_write_num & EXE_GPR_write &
+                            ID_GPR_read_num1 == EXE_GPR_write_num;
+    assign ID_EXE_GPR2_A = |EXE_GPR_write_num & EXE_GPR_write &
+                            ID_GPR_read_num2 == EXE_GPR_write_num;
+    assign ID_MEM_GPR1_A = |MEM_GPR_write_num & MEM_GPR_write &
+                            ID_GPR_read_num1 == MEM_GPR_write_num;
+    assign ID_MEM_GPR2_A = |MEM_GPR_write_num & MEM_GPR_write &
+                            ID_GPR_read_num2 == MEM_GPR_write_num;
+
+    assign ID_EXE_GPR1_T = ID_GPR1_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
+    assign ID_EXE_GPR2_T = ID_GPR2_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
+    assign ID_MEM_GPR1_T = ID_GPR1_use & MEM_GPR_new[`GPR_NEW_WB];
+    assign ID_MEM_GPR2_T = ID_GPR2_use & MEM_GPR_new[`GPR_NEW_WB];
+
+    assign ID_EXE_CSR_1 = EXE_CSR_write &
                          (EXE_CSR_number == `CSR_CRMD & |EXE_CSR_write_mask[`CSR_CRMD_IE] |
                           EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
                           EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
@@ -372,36 +400,26 @@ module mycpu_top (
     assign ID_MEM_CSR_3 = MEM_return;
     assign ID_WB_CSR_3 = WB_return;
 
-    assign ID_INT = interupt & ~(EXE_valid & (ID_EXE_CSR_1 | ID_EXE_CSR_2 | ID_EXE_CSR_3) |
-                                 MEM_valid & (ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
-                                 WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3));
-    // assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
-
-    assign ID_EXE_GPR1_A = |ID_GPR_read_num1 & EXE_GPR_write &
-                            ID_GPR_read_num1 == EXE_GPR_write_num;
-    assign ID_EXE_GPR2_A = |ID_GPR_read_num2 & EXE_GPR_write &
-                            ID_GPR_read_num2 == EXE_GPR_write_num;
-    assign ID_MEM_GPR1_A = |ID_GPR_read_num1 & MEM_GPR_write &
-                            ID_GPR_read_num1 == MEM_GPR_write_num;
-    assign ID_MEM_GPR2_A = |ID_GPR_read_num2 & MEM_GPR_write &
-                            ID_GPR_read_num2 == MEM_GPR_write_num;
-
-    assign ID_EXE_GPR1_T = ID_GPR1_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
-    assign ID_EXE_GPR2_T = ID_GPR2_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
-    assign ID_MEM_GPR1_T = ID_GPR1_use & MEM_GPR_new[`GPR_NEW_WB];
-    assign ID_MEM_GPR2_T = ID_GPR2_use & MEM_GPR_new[`GPR_NEW_WB];
+    assign ID_bj_stall = ID_jump & (EXE_valid & ID_EXE_GPR1_A &
+                        |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
+                         MEM_valid & ID_MEM_GPR1_A & MEM_GPR_new[`GPR_NEW_WB]) |
+                        |ID_branch[`BRANCH_LTU:`BRANCH_EQ] &
+                        (EXE_valid & (ID_EXE_GPR1_A | ID_EXE_GPR2_A) &
+                        |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
+                         MEM_valid & (ID_MEM_GPR1_A | ID_MEM_GPR2_A) & MEM_GPR_new[`GPR_NEW_WB]);
 
     assign ID_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T | ID_EXE_GPR2_A & ID_EXE_GPR2_T |
                                    ID_EXE_CSR_1 | ID_EXE_CSR_2 | ID_EXE_CSR_3) |
                       MEM_valid & (ID_MEM_GPR1_A & ID_MEM_GPR1_T | ID_MEM_GPR2_A & ID_MEM_GPR2_T |
                                    ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
                       WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3);
+
     assign ID_done = ~ID_stall;
 
     EXE_reg exe_reg (
         .clk                (clk),
         .reset              (reset),
-        .flush              (enter | __return),
+        .flush              (|exception | __return),
         .EXE_done           (EXE_done),
         .MEM_ready          (MEM_ready),
         .ID_to_EXE_valid    (ID_to_EXE_valid),
@@ -417,7 +435,6 @@ module mycpu_top (
         .ID_ALU_src1_is_PC  (ID_ALU_src1_is_PC),
         .ID_ALU_src2_is_imm (ID_ALU_src2_is_imm),
         .ID_ALU_operation   (ID_ALU_operation),
-        .ID_MEM_access      (ID_MEM_access),
         .ID_MEM_read        (ID_MEM_read),
         .ID_MEM_write       (ID_MEM_write),
         .ID_GPR_write       (ID_GPR_write),
@@ -442,7 +459,6 @@ module mycpu_top (
         .EXE_ALU_src1_is_PC (EXE_ALU_src1_is_PC),
         .EXE_ALU_src2_is_imm(EXE_ALU_src2_is_imm),
         .EXE_ALU_operation  (EXE_ALU_operation),
-        .EXE_MEM_access     (EXE_MEM_access),
         .EXE_MEM_read       (EXE_MEM_read),
         .EXE_MEM_write      (EXE_MEM_write),
         .EXE_GPR_write      (EXE_GPR_write),
@@ -461,37 +477,36 @@ module mycpu_top (
     );
 
     EXE_stage exe_stage (
-        .clk             (clk),
-        .reset           (reset),
-        .valid           (EXE_valid),
-        .done            (EXE_done),
-        .MEM_valid       (MEM_valid),
-        .WB_valid        (WB_valid),
-        .exception       (EXE_exception),
-        .MEM_exception   (MEM_exception),
-        .WB_exception    (WB_exception),
-        .PC              (EXE_PC),
-        .imm             (EXE_imm),
-        .rj_data         (EXE_rj_data),
-        .rkd_data        (EXE_rkd_data),
-        .ALU_src1_is_PC  (EXE_ALU_src1_is_PC),
-        .ALU_src2_is_imm (EXE_ALU_src2_is_imm),
-        .ALU_operation   (EXE_ALU_operation),
-        .MEM_access      (EXE_MEM_access),
-        .MEM_read        (EXE_MEM_read),
-        .MEM_write       (EXE_MEM_write),
-        .ALU_result      (EXE_ALU_result),
-        .MEM_enable      (EXE_MEM_enable),
-        .MEM_write_enable(EXE_MEM_write_enable),
-        .MEM_addr        (EXE_MEM_addr),
-        .MEM_write_data  (EXE_MEM_write_data),
-        .ALE             (EXE_ALE)
+        .clk              (clk),
+        .reset            (reset),
+        .valid            (EXE_valid),
+        .MEM_ready        (MEM_ready),
+        .done             (EXE_done),
+        .MEM_valid        (MEM_valid),
+        .WB_valid         (WB_valid),
+        .exception        (EXE_exception),
+        .MEM_exception    (MEM_exception),
+        .WB_exception     (WB_exception),
+        .data_sram_req    (data_sram_req),
+        .data_sram_wr     (data_sram_wr),
+        .data_sram_size   (data_sram_size),
+        .data_sram_addr   (data_sram_addr),
+        .data_sram_wstrb  (data_sram_wstrb),
+        .data_sram_wdata  (data_sram_wdata),
+        .data_sram_addr_ok(data_sram_addr_ok),
+        .PC               (EXE_PC),
+        .imm              (EXE_imm),
+        .rj_data          (EXE_rj_data),
+        .rkd_data         (EXE_rkd_data),
+        .ALU_src1_is_PC   (EXE_ALU_src1_is_PC),
+        .ALU_src2_is_imm  (EXE_ALU_src2_is_imm),
+        .ALU_operation    (EXE_ALU_operation),
+        .MEM_read         (EXE_MEM_read),
+        .MEM_write        (EXE_MEM_write),
+        .ALU_result       (EXE_ALU_result),
+        .MEM_addr         (EXE_MEM_addr),
+        .ALE              (EXE_ALE)
     );
-
-    assign data_sram_en = EXE_MEM_enable;
-    assign data_sram_we = EXE_MEM_write_enable;
-    assign data_sram_addr = EXE_MEM_addr;
-    assign data_sram_wdata = EXE_MEM_write_data;
 
     assign EXE_exception = {
         4'b0, EXE_INE, EXE_BRK, EXE_SYS, EXE_ALE, 1'b0, EXE_ADEF, 5'b0, EXE_INT
@@ -504,7 +519,7 @@ module mycpu_top (
     MEM_reg mem_reg (
         .clk               (clk),
         .reset             (reset),
-        .flush             (enter | __return),
+        .flush             (|exception | __return),
         .MEM_done          (MEM_done),
         .WB_ready          (WB_ready),
         .EXE_to_MEM_valid  (EXE_to_MEM_valid),
@@ -516,6 +531,7 @@ module mycpu_top (
         .EXE_CNT_data      (EXE_CNT_data),
         .EXE_ALU_result    (EXE_ALU_result),
         .EXE_MEM_read      (EXE_MEM_read),
+        .EXE_MEM_write     (EXE_MEM_write),
         .EXE_MEM_addr      (EXE_MEM_addr),
         .EXE_GPR_write     (EXE_GPR_write),
         .EXE_GPR_write_num (EXE_GPR_write_num),
@@ -536,6 +552,7 @@ module mycpu_top (
         .MEM_CNT_data      (MEM_CNT_data),
         .MEM_ALU_result    (MEM_ALU_result),
         .MEM_MEM_read      (MEM_MEM_read),
+        .MEM_MEM_write     (MEM_MEM_write),
         .MEM_MEM_addr      (MEM_MEM_addr),
         .MEM_GPR_write     (MEM_GPR_write),
         .MEM_GPR_write_num (MEM_GPR_write_num),
@@ -554,18 +571,19 @@ module mycpu_top (
     );
 
     MEM_stage mem_stage (
-        .done         (MEM_done),
-        .MEM_read     (MEM_MEM_read),
-        .MEM_addr_low (MEM_MEM_addr[1:0]),
-        .MEM_read_data(MEM_MEM_read_data),
-        .MEM_result   (MEM_MEM_result)
+        .done             (MEM_done),
+        .exception        (MEM_exception),
+        .data_sram_data_ok(data_sram_data_ok),
+        .data_sram_rdata  (data_sram_rdata),
+        .MEM_read         (MEM_MEM_read),
+        .MEM_write        (MEM_MEM_write),
+        .MEM_addr_1_0     (MEM_MEM_addr[1:0]),
+        .MEM_result       (MEM_MEM_result)
     );
 
     assign MEM_exception = {
         4'b0, MEM_INE, MEM_BRK, MEM_SYS, MEM_ALE, 1'b0, MEM_ADEF, 5'b0, MEM_INT
     };
-
-    assign MEM_MEM_read_data = data_sram_rdata;
 
     assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CNT]}} & MEM_CNT_data |
                               {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result;
@@ -573,7 +591,7 @@ module mycpu_top (
     WB_reg wb_reg (
         .clk               (clk),
         .reset             (reset),
-        .flush             (enter | __return),
+        .flush             (|exception | __return),
         .WB_done           (WB_done),
         .MEM_to_WB_valid   (MEM_to_WB_valid),
         .WB_valid          (WB_valid),
@@ -658,8 +676,7 @@ module mycpu_top (
         .__return    (__return),
         .PC          (PC),
         .vaddr       (WB_MEM_addr),          // TODO: delay memory write
-        .interupt    (interupt),
-        .enter       (enter),
+        .interupt    (ID_irq),
         .entry       (entry),
         .raddr       (raddr)
     );

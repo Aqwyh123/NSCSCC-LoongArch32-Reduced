@@ -3,12 +3,14 @@
 module ID_stage (
     input  wire                            clk,
     input  wire                            reset,
-    // handshaking signals
+    // control signals
     input  wire                            valid,
-    input  wire                            done,
+    input  wire                            bj_stall,
     // data signals
     input  wire [                    31:0] inst,
     input  wire [                    31:0] PC,
+    output wire                            jump,
+    output wire [       `BRANCH_WIDTH-1:0] branch,
     output wire [                     4:0] GPR_read_num1,
     input  wire [                    31:0] rj_data,
     output wire [                     4:0] GPR_read_num2,
@@ -17,7 +19,6 @@ module ID_stage (
     output wire                            ALU_src1_is_PC,
     output wire                            ALU_src2_is_imm,
     output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
-    output wire                            MEM_access,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
@@ -29,16 +30,15 @@ module ID_stage (
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
-    output wire                            branch_jump,
+    output wire                            bj_taken,
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
+    output wire [                    31:0] link,
     output wire                            __return,
     output wire                            SYS,
     output wire                            BRK,
     output wire                            INE
 );
-    wire jump;
-    wire [`BRANCH_WIDTH-1:0] branch;
     wire branch_reverse;
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
@@ -79,7 +79,6 @@ module ID_stage (
         .ALU_src1_is_PC     (ALU_src1_is_PC),
         .ALU_src2_is_imm    (ALU_src2_is_imm),
         .ALU_operation      (ALU_operation),
-        .MEM_access         (MEM_access),
         .MEM_read           (MEM_read),
         .MEM_write          (MEM_write),
         .GPR_write          (GPR_write),
@@ -117,10 +116,10 @@ module ID_stage (
                   {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}},o21,2'b0} |
                   {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
-    assign branch_jump = valid & done & (jump | branch[`BRANCH_UNCOND] |
-                         branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
-                         branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
-                         branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
+    assign bj_taken = valid & ~bj_stall & (jump | branch[`BRANCH_UNCOND] |
+                      branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
+                      branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
+                      branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
     adder #(
         .WIDTH(32)
@@ -129,6 +128,16 @@ module ID_stage (
         .addend2(offs),
         .cin    (1'b0),
         .sum    (target_PC),
+        .cout   ()
+    );
+
+    adder #(
+        .WIDTH(32)
+    ) link_adder (
+        .addend1(PC),
+        .addend2(32'h4),
+        .cin    (1'b0),
+        .sum    (link),
         .cout   ()
     );
 

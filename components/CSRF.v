@@ -17,7 +17,6 @@ module CSRF (
     input  wire [                 31:0] PC,
     input  wire [                 31:0] vaddr,
     output wire                         interupt,
-    output wire                         enter,
     output wire [                 31:0] entry,
     output wire [                 31:0] raddr
 );
@@ -49,8 +48,6 @@ module CSRF (
                       exception[`EXCEPTION_ALE] ? `ECODE_ALE  : `ECODE_WIDTH'b0;
     assign esubcode = {8'b0, exception[`EXCEPTION_ADEM]};
 
-    assign enter = |exception;
-
     always @(posedge clk) begin
         if (reset) begin
             CRMD[`CSR_CRMD_PLV]  <= 2'b0;
@@ -59,7 +56,7 @@ module CSRF (
             CRMD[`CSR_CRMD_PG]   <= 1'b0;  // not implemented
             CRMD[`CSR_CRMD_DATF] <= 2'b0;  // not implemented
             CRMD[`CSR_CRMD_DATM] <= 2'b0;  // not implemented
-        end else if (enter) begin
+        end else if (|exception) begin
             CRMD[`CSR_CRMD_PLV] <= 2'b0;
             CRMD[`CSR_CRMD_IE]  <= 1'b0;
         end else if (__return) begin
@@ -75,7 +72,7 @@ module CSRF (
     end
 
     always @(posedge clk) begin
-        if (enter) begin
+        if (|exception) begin
             PRMD[`CSR_PRMD_PPLV] <= CRMD[`CSR_CRMD_PLV];
             PRMD[`CSR_PRMD_PIE]  <= CRMD[`CSR_CRMD_IE];
         end else if (write_enable & number == `CSR_PRMD) begin
@@ -117,7 +114,7 @@ module CSRF (
             ESTAT[`CSR_ESTAT_IS_11] <= 1'b0;
         end
         ESTAT[`CSR_ESTAT_IS_12] <= ip_int;
-        if (enter) begin
+        if (|exception) begin
             ESTAT[`CSR_ESTAT_ECODE]    <= ecode;
             ESTAT[`CSR_ESTAT_ESUBCODE] <= esubcode;
         end
@@ -127,7 +124,7 @@ module CSRF (
     end
 
     always @(posedge clk) begin
-        if (enter) begin
+        if (|exception) begin
             ERA[`CSR_ERA_PC] <= PC;
         end else if (write_enable & number == `CSR_ERA) begin
             ERA[`CSR_ERA_PC] <= write_mask[`CSR_ERA_PC] & write_data[`CSR_ERA_PC] |

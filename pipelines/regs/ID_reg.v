@@ -5,7 +5,6 @@ module ID_reg (
     input  wire        reset,
     // control signals
     input  wire        flush,
-    input  wire        cancel,
     // handshaking signals
     input  wire        ID_done,
     input  wire        EXE_ready,
@@ -15,11 +14,9 @@ module ID_reg (
     output wire        ID_to_EXE_valid,
     // data signals
     input  wire [31:0] IF_PC,
-    input  wire [31:0] IF_link,
     input  wire [31:0] IF_inst,
     input  wire        IF_ADEF,
     output reg  [31:0] ID_PC,
-    output reg  [31:0] ID_link,
     output reg  [31:0] ID_inst,
     output reg         ID_ADEF
 );
@@ -32,14 +29,11 @@ module ID_reg (
         end else if (flush) begin
             ID_valid <= 1'b0;
         end else begin
-            if (cancel) begin
-                ID_valid <= 1'b0;
-            end else if (ID_ready) begin
+            if (ID_ready) begin
                 ID_valid <= IF_to_ID_valid;
             end
             if (IF_to_ID_valid & ID_ready) begin
                 ID_PC   <= IF_PC;
-                ID_link <= IF_link;
                 ID_inst <= IF_inst;
                 ID_ADEF <= IF_ADEF;
             end
