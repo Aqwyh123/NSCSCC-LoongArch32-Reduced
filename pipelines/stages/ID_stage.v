@@ -122,23 +122,23 @@ module ID_stage (
                       branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
     adder #(
-        .WIDTH(32)
+        .ADDEND1_WIDTH(32),
+        .ADDEND2_WIDTH(32),
+        .CARRY        (0)
     ) target_PC_adder (
         .addend1(jump ? rj_data : PC),
         .addend2(offs),
-        .cin    (1'b0),
-        .sum    (target_PC),
-        .cout   ()
+        .sum    (target_PC)
     );
 
     adder #(
-        .WIDTH(32)
+        .ADDEND1_WIDTH(32),
+        .ADDEND2_WIDTH(3),
+        .CARRY        (0)
     ) link_adder (
         .addend1(PC),
-        .addend2(32'h4),
-        .cin    (1'b0),
-        .sum    (link),
-        .cout   ()
+        .addend2(3'h4),
+        .sum    (link)
     );
 
     // si20 is used to lu12i_w

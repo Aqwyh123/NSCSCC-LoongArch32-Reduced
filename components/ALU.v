@@ -55,7 +55,9 @@ module ALU (
     wire [31:0] adder_result;
     wire        adder_cout;
     adder #(
-        .WIDTH(32)
+        .ADDEND1_WIDTH(32),
+        .ADDEND2_WIDTH(32),
+        .CARRY        (1)
     ) adder_32 (
         .addend1(adder_operand1),
         .addend2(adder_operand2),

@@ -1,8 +1,8 @@
 `include "../macros.vh"
 
 module decoder #(
-    parameter integer IN_WIDTH  = 2,
-    parameter integer OUT_WIDTH = 4
+    parameter IN_WIDTH  = 2,
+    parameter OUT_WIDTH = 4
 ) (
     input  wire [ IN_WIDTH-1:0] in,
     output wire [OUT_WIDTH-1:0] out

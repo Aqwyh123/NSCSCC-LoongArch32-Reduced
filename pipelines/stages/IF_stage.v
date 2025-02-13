@@ -1,8 +1,4 @@
 `include "../../macros.vh"
-`define STATE_IDLE 2'b00
-`define STATE_FETCH 2'b01
-`define STATE_WAIT 2'b10
-`define STATE_DONE 2'b11
 
 module IF_stage (
     input  wire        clk,
@@ -37,13 +33,13 @@ module IF_stage (
     reg  [31:0] inst_temp;
 
     adder #(
-        .WIDTH(32)
+        .ADDEND1_WIDTH(32),
+        .ADDEND2_WIDTH(3),
+        .CARRY        (0)
     ) pre_IF_PC_adder (
         .addend1(PC),
-        .addend2(32'h4),
-        .cin    (1'b0),
-        .sum    (pre_IF_PC),
-        .cout   ()
+        .addend2(3'h4),
+        .sum    (pre_IF_PC)
     );
 
     assign inst_sram_req_valid = IF_ready & ~flush & ~|pre_IF_PC[1:0];
@@ -62,7 +58,7 @@ module IF_stage (
             inst_sram_data_ok_valid <= 1'b1;
         end else if (flush & IF_valid & ~ADEF & ~inst_sram_data_ok & ~inst_sram_temp_ok) begin
             inst_sram_data_ok_valid <= 1'b0;
-        end else if (inst_sram_data_ok) begin
+        end else if (~flush & inst_sram_data_ok) begin
             inst_sram_data_ok_valid <= 1'b1;
         end
     end

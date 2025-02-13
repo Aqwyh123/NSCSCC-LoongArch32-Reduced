@@ -1,38 +1,77 @@
 `include "macros.vh"
 
 module mycpu_top (
-    input  wire        clk,
-    input  wire        resetn,
-    // inst sram interface
-    output wire        inst_sram_req,
-    output wire        inst_sram_wr,
-    output wire [ 1:0] inst_sram_size,
-    output wire [31:0] inst_sram_addr,
-    output wire [ 3:0] inst_sram_wstrb,
-    output wire [31:0] inst_sram_wdata,
-    input  wire        inst_sram_addr_ok,
-    input  wire        inst_sram_data_ok,
-    input  wire [31:0] inst_sram_rdata,
-    // data sram interface
-    output wire        data_sram_req,
-    output wire        data_sram_wr,
-    output wire [ 1:0] data_sram_size,
-    output wire [31:0] data_sram_addr,
-    output wire [ 3:0] data_sram_wstrb,
-    output wire [31:0] data_sram_wdata,
-    input  wire        data_sram_addr_ok,
-    input  wire        data_sram_data_ok,
-    input  wire [31:0] data_sram_rdata,
+    input  wire        aclk,
+    input  wire        aresetn,
+    // read requast channel
+    output wire [ 3:0] arid,
+    output wire [31:0] araddr,
+    output wire [ 7:0] arlen,             // fixed to 8'h00
+    output wire [ 2:0] arsize,
+    output wire [ 1:0] arburst,           // fixed to 2'b01
+    output wire [ 1:0] arlock,            // fixed to 2'b00
+    output wire [ 3:0] arcache,           // fixed to 4'b0000
+    output wire [ 2:0] arprot,            // fixed to 3'b000
+    output wire        arvalid,
+    input  wire        arready,
+    // read response channel
+    input  wire [ 3:0] rid,
+    input  wire [31:0] rdata,
+    input  wire [ 1:0] rresp,             // ignored
+    input  wire        rlast,             // ignored
+    input  wire        rvalid,
+    output wire        rready,
+    // write requast channel
+    output wire [ 3:0] awid,              // fixed to 4'b0001
+    output wire [31:0] awaddr,
+    output wire [ 7:0] awlen,             // fixed to 8'h00
+    output wire [ 2:0] awsize,
+    output wire [ 1:0] awburst,           // fixed to 2'b01
+    output wire [ 1:0] awlock,            // fixed to 2'b00
+    output wire [ 3:0] awcache,           // fixed to 4'b0000
+    output wire [ 2:0] awprot,            // fixed to 3'b000
+    output wire        awvalid,
+    input  wire        awready,
+    // write data channel
+    output wire [ 3:0] wid,               // fixed to 4'b0001
+    output wire [31:0] wdata,
+    output wire [ 3:0] wstrb,
+    output wire        wlast,             // fixed to 1'b1
+    output wire        wvalid,
+    input  wire        wready,
+    // write response channel
+    input  wire [ 3:0] bid,               // ignored
+    input  wire        bresp,             // ignored
+    input  wire        bvalid,
+    output wire        bready,
     // trace debug interface
     output wire [31:0] debug_wb_pc,
     output wire [ 3:0] debug_wb_rf_we,
     output wire [ 4:0] debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata
 );
-    reg reset;
-    always @(posedge clk) begin
-        reset <= ~resetn;
-    end
+    wire                            clk;
+    wire                            reset;
+    // inst sram interface
+    wire                            inst_sram_req;
+    wire                            inst_sram_wr;
+    wire [                     1:0] inst_sram_size;
+    wire [                    31:0] inst_sram_addr;
+    wire [                     3:0] inst_sram_wstrb;
+    wire [                    31:0] inst_sram_wdata;
+    wire                            inst_sram_addr_ok;
+    wire                            inst_sram_data_ok;
+    wire [                    31:0] inst_sram_rdata;
+    // data sram interface
+    wire                            data_sram_req;
+    wire                            data_sram_wr;
+    wire [                     1:0] data_sram_size;
+    wire [                    31:0] data_sram_addr;
+    wire [                     3:0] data_sram_wstrb;
+    wire [                    31:0] data_sram_wdata;
+    wire                            data_sram_addr_ok;
+    wire                            data_sram_data_ok;
+    wire [                    31:0] data_sram_rdata;
 
     wire [                    31:0] PC;
     wire [    `EXCEPTION_WIDTH-1:0] exception;
@@ -224,6 +263,67 @@ module mycpu_top (
 
     wire [                    31:0] WB_MEM_addr;
 
+    AXI_Bridge axi_bridge (
+        .aclk             (aclk),
+        .aresetn          (aresetn),
+        .clk              (clk),
+        .reset            (reset),
+        .inst_sram_req    (inst_sram_req),
+        .inst_sram_wr     (inst_sram_wr),
+        .inst_sram_size   (inst_sram_size),
+        .inst_sram_addr   (inst_sram_addr),
+        .inst_sram_wstrb  (inst_sram_wstrb),
+        .inst_sram_wdata  (inst_sram_wdata),
+        .inst_sram_addr_ok(inst_sram_addr_ok),
+        .inst_sram_data_ok(inst_sram_data_ok),
+        .inst_sram_rdata  (inst_sram_rdata),
+        .data_sram_req    (data_sram_req),
+        .data_sram_wr     (data_sram_wr),
+        .data_sram_size   (data_sram_size),
+        .data_sram_addr   (data_sram_addr),
+        .data_sram_wstrb  (data_sram_wstrb),
+        .data_sram_wdata  (data_sram_wdata),
+        .data_sram_addr_ok(data_sram_addr_ok),
+        .data_sram_data_ok(data_sram_data_ok),
+        .data_sram_rdata  (data_sram_rdata),
+        .arid             (arid),
+        .araddr           (araddr),
+        .arlen            (arlen),
+        .arsize           (arsize),
+        .arburst          (arburst),
+        .arlock           (arlock),
+        .arcache          (arcache),
+        .arprot           (arprot),
+        .arvalid          (arvalid),
+        .arready          (arready),
+        .rid              (rid),
+        .rdata            (rdata),
+        .rresp            (rresp),
+        .rlast            (rlast),
+        .rvalid           (rvalid),
+        .rready           (rready),
+        .awid             (awid),
+        .awaddr           (awaddr),
+        .awlen            (awlen),
+        .awsize           (awsize),
+        .awburst          (awburst),
+        .awlock           (awlock),
+        .awcache          (awcache),
+        .awprot           (awprot),
+        .awvalid          (awvalid),
+        .awready          (awready),
+        .wid              (wid),
+        .wdata            (wdata),
+        .wstrb            (wstrb),
+        .wlast            (wlast),
+        .wvalid           (wvalid),
+        .wready           (wready),
+        .bid              (bid),
+        .bresp            (bresp),
+        .bvalid           (bvalid),
+        .bready           (bready)
+    );
+
     IF_reg if_reg (
         .clk               (clk),
         .reset             (reset),
@@ -246,7 +346,7 @@ module mycpu_top (
     IF_stage if_stage (
         .clk               (clk),
         .reset             (reset),
-        .flush             (|exception | __returnn | ID_bj_taken),
+        .flush             (|exception | __return | ID_bj_taken),
         .IF_valid          (IF_valid),
         .IF_ready          (IF_ready),
         .ID_ready          (ID_ready),

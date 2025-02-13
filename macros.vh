@@ -216,6 +216,9 @@
 `define CSR_TICLR_0 31:1
 `define CSR_TICLR_0_WIDTH 31
 
+`define INST_ARID 4'h0
+`define DATA_ARID 4'h1
+
 `define RDCNTID_W_31_26 6'b000000
 `define RDCNTID_W_25_24 2'b00
 `define RDCNTID_W_23_22 2'b00
