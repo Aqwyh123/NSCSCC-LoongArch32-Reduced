@@ -32,15 +32,7 @@ module IF_stage (
     reg         inst_sram_temp_ok;
     reg  [31:0] inst_temp;
 
-    adder #(
-        .ADDEND1_WIDTH(32),
-        .ADDEND2_WIDTH(3),
-        .CARRY        (0)
-    ) pre_IF_PC_adder (
-        .addend1(PC),
-        .addend2(3'h4),
-        .sum    (pre_IF_PC)
-    );
+    assign pre_IF_PC = PC + 3'h4;
 
     assign inst_sram_req_valid = IF_ready & ~flush & ~|pre_IF_PC[1:0];
 

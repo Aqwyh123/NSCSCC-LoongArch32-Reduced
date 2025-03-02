@@ -15,8 +15,9 @@ module MEM_reg (
     // data signals
     input  wire [                    31:0] EXE_PC,
     input  wire [                    31:0] EXE_rd_data,
-    input  wire [                    31:0] EXE_CNT_data,
+    input  wire [                    31:0] EXE_CNT_result,
     input  wire [                    31:0] EXE_ALU_result,
+    input  wire                            EXE_mul_is_low,
     input  wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
     input  wire [                    31:0] EXE_MEM_addr,
@@ -36,8 +37,9 @@ module MEM_reg (
     input  wire                            EXE_INE,
     output reg  [                    31:0] MEM_PC,
     output reg  [                    31:0] MEM_rd_data,
-    output reg  [                    31:0] MEM_CNT_data,
+    output reg  [                    31:0] MEM_CNT_result,
     output reg  [                    31:0] MEM_ALU_result,
+    output reg                             MEM_mul_is_low,
     output reg  [     `MEM_READ_WIDTH-1:0] MEM_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write,
     output reg  [                    31:0] MEM_MEM_addr,
@@ -71,8 +73,9 @@ module MEM_reg (
             if (EXE_to_MEM_valid & MEM_ready) begin
                 MEM_PC             <= EXE_PC;
                 MEM_rd_data        <= EXE_rd_data;
-                MEM_CNT_data       <= EXE_CNT_data;
+                MEM_CNT_result     <= EXE_CNT_result;
                 MEM_ALU_result     <= EXE_ALU_result;
+                MEM_mul_is_low     <= EXE_mul_is_low;
                 MEM_MEM_read       <= EXE_MEM_read;
                 MEM_MEM_write      <= EXE_MEM_write;
                 MEM_MEM_addr       <= EXE_MEM_addr;

@@ -29,6 +29,7 @@ module EXE_stage (
     input  wire                        ALU_src1_is_PC,
     input  wire                        ALU_src2_is_imm,
     input  wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
+    input  wire                        div_unsigned,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire [                31:0] ALU_result,
@@ -40,18 +41,20 @@ module EXE_stage (
     wire        ALU_done;
     wire        MEM_done;
 
-    assign done = |exception ? 1'b1 : |MEM_read | |MEM_write ? MEM_done : ALU_done;
+    assign done         = |exception ? 1'b1 : |MEM_read | |MEM_write ? MEM_done : ALU_done;
 
     ALU alu (
-        .clk      (clk),
-        .reset    (reset),
-        .valid    (valid),
-        .operation(ALU_operation),
-        .operand1 (ALU_operand1),
-        .operand2 (ALU_operand2),
-        .result   (ALU_result),
-        .done     (ALU_done),
-        .MEM_addr (MEM_addr)
+        .clk         (clk),
+        .reset       (reset),
+        .valid       (valid),
+        .ready       (MEM_ready),
+        .operation   (ALU_operation),
+        .div_unsigned(div_unsigned),
+        .operand1    (ALU_operand1),
+        .operand2    (ALU_operand2),
+        .result      (ALU_result),
+        .done        (ALU_done),
+        .MEM_addr    (MEM_addr)
     );
 
     wire [3:0] MEM_addr_d;

@@ -49,7 +49,7 @@
 `define BRANCH_LT 2
 `define BRANCH_LTU 3
 
-`define ALU_OP_WIDTH 19
+`define ALU_OP_WIDTH 14
 `define ALU_OP_ADD 0
 `define ALU_OP_SUB 1
 `define ALU_OP_SLT 2
@@ -62,13 +62,8 @@
 `define ALU_OP_SRL 9
 `define ALU_OP_SRA 10
 `define ALU_OP_LUI 11
-`define ALU_OP_MUL_LO 12
-`define ALU_OP_MUL_HI 13
-`define ALU_OP_MULU_HI 14
-`define ALU_OP_DIV 15
-`define ALU_OP_MOD 16
-`define ALU_OP_DIVU 17
-`define ALU_OP_MODU 18
+`define ALU_OP_DIV 12
+`define ALU_OP_MOD 13
 
 `define MEM_READ_WIDTH 5
 `define MEM_READ_BYTE 0
@@ -82,13 +77,14 @@
 `define MEM_WRITE_HALF 1
 `define MEM_WRITE_WORD 2
 
-`define GPR_WRITE_SRC_WIDTH 6
+`define GPR_WRITE_SRC_WIDTH 7
 `define GPR_WRITE_SRC_LINK 0
 `define GPR_WRITE_SRC_LUI 1
 `define GPR_WRITE_SRC_CNT 2
 `define GPR_WRITE_SRC_ALU 3
-`define GPR_WRITE_SRC_MEM 4
-`define GPR_WRITE_SRC_CSR 5
+`define GPR_WRITE_SRC_MUL 4
+`define GPR_WRITE_SRC_MEM 5
+`define GPR_WRITE_SRC_CSR 6
 
 `define GPR_WRITE_DST_WIDTH 2
 `define GPR_WRITE_DST_R1 0

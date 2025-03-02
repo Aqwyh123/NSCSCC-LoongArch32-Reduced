@@ -4,75 +4,66 @@ module divider (
     input  wire        clk,
     input  wire        reset,
     input  wire        valid,
-    input  wire        div_signed,
+    input  wire        ready,
+    input  wire        div_unsigned,
     input  wire [31:0] dividend,
     input  wire [31:0] divisor,
-    output reg  [31:0] quotient,
-    output reg  [31:0] remainder,
-    output reg         done
+    output wire [31:0] quotient,
+    output wire [31:0] remainder,
+    output wire        done
 );
-    reg         signed_source_valid;
-    wire        signed_dividend_ready;
-    wire        signed_divisor_ready;
-    wire        signed_result_valid;
-    wire [63:0] signed_result;
-    reg         unsigned_source_valid;
-    wire        unsigned_dividend_ready;
-    wire        unsigned_divisor_ready;
-    wire        unsigned_result_valid;
-    wire [63:0] unsigned_result;
+    wire [32:0] dividend_u;
+    wire [32:0] divisor_u;
+    reg  [32:0] quotient_u;
+    reg  [32:0] remainder_u;
+    reg  [ 7:0] count;
 
-    reg         busy;
+    wire [32:0] sub_result;
+    wire [32:0] remainder_next;
+
+    wire [32:0] quotient_r;
+    wire [32:0] remainder_r;
+
+    assign dividend_u = {
+        1'b0, div_unsigned ? dividend : (dividend[31] ? (~dividend + 1'b1) : dividend)
+    };
+    assign divisor_u = {1'b0, div_unsigned ? divisor : (divisor[31] ? (~divisor + 1'b1) : divisor)};
+
+    assign remainder_next = {remainder_u[31:0], dividend_u[count]};
+    assign sub_result = remainder_next - divisor_u;
 
     always @(posedge clk) begin
-        if (reset | ~valid) begin
-            signed_source_valid   <= 1'b0;
-            unsigned_source_valid <= 1'b0;
-            busy                  <= 1'b0;
-            done                  <= 1'b0;
-        end else if (~busy & ~done) begin
-            signed_source_valid   <= div_signed;
-            unsigned_source_valid <= ~div_signed;
-            busy                  <= 1'b1;
-            done                  <= 1'b0;
-        end else if (~done) begin
-            if (signed_source_valid) begin
-                signed_source_valid <= ~(signed_divisor_ready & signed_dividend_ready);
+        if (reset) begin
+            count       <= 8'd32;
+            quotient_u  <= 33'b0;
+            remainder_u <= 33'b0;
+        end else if (~valid) begin
+            count       <= 8'd32;
+            quotient_u  <= 33'b0;
+            remainder_u <= 33'b0;
+        end else if (~(count[7])) begin
+            count <= count - 1'b1;
+            if (sub_result[32]) begin
+                quotient_u  <= {quotient_u[31:0], 1'b0};
+                remainder_u <= remainder_next;
+            end else begin
+                quotient_u  <= {quotient_u[31:0], 1'b1};
+                remainder_u <= sub_result;
             end
-            if (unsigned_source_valid) begin
-                unsigned_source_valid <= ~(unsigned_divisor_ready & unsigned_dividend_ready);
-            end
-            busy      <= div_signed ? ~signed_result_valid : ~unsigned_result_valid;
-            done      <= div_signed ? signed_result_valid : unsigned_result_valid;
-            quotient  <= div_signed ? signed_result[63:32] : unsigned_result[63:32];
-            remainder <= div_signed ? signed_result[31:0] : unsigned_result[31:0];
-        end else begin
-            done <= 1'b0;
+        end else if (ready) begin
+            count       <= 8'd32;
+            quotient_u  <= 33'b0;
+            remainder_u <= 33'b0;
         end
     end
 
-    divider_signed div_s (
-        .aclk                  (clk),
-        .s_axis_divisor_tvalid (signed_source_valid),
-        .s_axis_divisor_tready (signed_divisor_ready),
-        .s_axis_divisor_tdata  (divisor),
-        .s_axis_dividend_tvalid(signed_source_valid),
-        .s_axis_dividend_tready(signed_dividend_ready),
-        .s_axis_dividend_tdata (dividend),
-        .m_axis_dout_tvalid    (signed_result_valid),
-        .m_axis_dout_tdata     (signed_result)
-    );
+    assign done = count == 8'hff;
 
-    divider_unsigned div_u (
-        .aclk                  (clk),
-        .s_axis_divisor_tvalid (unsigned_source_valid),
-        .s_axis_divisor_tready (unsigned_divisor_ready),
-        .s_axis_divisor_tdata  (divisor),
-        .s_axis_dividend_tvalid(unsigned_source_valid),
-        .s_axis_dividend_tready(unsigned_dividend_ready),
-        .s_axis_dividend_tdata (dividend),
-        .m_axis_dout_tvalid    (unsigned_result_valid),
-        .m_axis_dout_tdata     (unsigned_result)
-    );
+    assign quotient_r = div_unsigned ? quotient_u  : (dividend[31] == divisor[31] ?
+                        quotient_u : ~(quotient_u - 1'b1));
+    assign remainder_r = div_unsigned ? remainder_u : (dividend[31] ?
+                       ~(remainder_u - 1'b1) : remainder_u);
+
+    assign quotient = quotient_r[31:0];
+    assign remainder = remainder_r[31:0];
 endmodule
-

@@ -8,10 +8,12 @@ module ID (
     output wire [      `IMM_SRC_WIDTH-1:0] imm_src,
     output wire [     `OFFS_SRC_WIDTH-1:0] offs_src,
     output wire                            GPR_read_src2_is_rd,  // default : rk
-    output wire                            CNT_is_high,          // default : low
+    output wire                            CNT_is_low,           // default : high
     output wire                            ALU_src1_is_PC,       // default : rj
     output wire                            ALU_src2_is_imm,      // default : rk/rd
     output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                            mul_div_unsigned,
+    output wire                            mul_is_low,           // default : high
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
@@ -257,7 +259,7 @@ module ID (
     assign GPR_read_src2_is_rd = st_b | st_h | st_w | beq | bne | blt | bge | bltu | bgeu |
                                  csrwr | csrxchg;
 
-    assign CNT_is_high = rdcntvh_w;
+    assign CNT_is_low = rdcntvl_w;
 
     assign ALU_src1_is_PC = jirl | bl | pcaddu12i;
     assign ALU_src2_is_imm = slli_w | srli_w | srai_w | slti | sltui | addi_w | andi | ori | xori |
@@ -277,13 +279,12 @@ module ID (
     assign ALU_operation[`ALU_OP_SRL] = srli_w | srl_w;
     assign ALU_operation[`ALU_OP_SRA] = srai_w | sra_w;
     assign ALU_operation[`ALU_OP_LUI] = lu12i_w;
-    assign ALU_operation[`ALU_OP_MUL_LO] = mul_w;
-    assign ALU_operation[`ALU_OP_MUL_HI] = mulh_w;
-    assign ALU_operation[`ALU_OP_MULU_HI] = mulhu_wu;
-    assign ALU_operation[`ALU_OP_DIV] = div_w;
-    assign ALU_operation[`ALU_OP_MOD] = mod_w;
-    assign ALU_operation[`ALU_OP_DIVU] = div_wu;
-    assign ALU_operation[`ALU_OP_MODU] = mod_wu;
+    assign ALU_operation[`ALU_OP_DIV] = div_w | div_wu;
+    assign ALU_operation[`ALU_OP_MOD] = mod_w | mod_wu;
+
+    assign mul_div_unsigned = mulhu_wu | div_wu | mod_wu;
+
+    assign mul_is_low = mul_w;
 
     assign MEM_read[`MEM_READ_BYTE] = ld_b;
     assign MEM_read[`MEM_READ_HALF] = ld_h;
@@ -313,6 +314,7 @@ module ID (
                                                sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
                                                div_w | mod_w | div_wu | mod_wu | pcaddu12i |
                                                slli_w | srli_w | srai_w | slti | sltui | addi_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_MUL] = mul_w | mulh_w | mulhu_wu;
     assign GPR_write_src[`GPR_WRITE_SRC_MEM] = ld_b | ld_h | ld_w | ld_bu | ld_hu;
     assign GPR_write_src[`GPR_WRITE_SRC_CSR] = csrrd | csrwr | csrxchg | rdcntid_w;
 

@@ -63,7 +63,7 @@ module AXI_Bridge (
     input  wire        wready,
     // write response channel
     input  wire [ 3:0] bid,                // ignored
-    input  wire        bresp,              // ignored
+    input  wire [ 1:0] bresp,              // ignored
     input  wire        bvalid,
     output reg         bready
 );
@@ -156,7 +156,11 @@ module AXI_Bridge (
     always @(posedge clk) begin
         if (reset) begin
             write_request_state <= WriteRequestIdle;
+            awaddr              <= 32'h0;
+            awsize              <= 2'b00;
             awvalid             <= 1'b0;
+            wdata               <= 32'h0;
+            wstrb               <= 4'h0;
             wvalid              <= 1'b0;
             bready              <= 1'b0;
         end else begin

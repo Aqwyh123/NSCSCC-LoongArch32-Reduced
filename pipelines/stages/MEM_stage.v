@@ -9,12 +9,17 @@ module MEM_stage (
     input  wire                        data_sram_data_ok,
     input  wire [                31:0] data_sram_rdata,
     // data signals
+    input  wire                        mul_is_low,
+    input  wire [                63:0] mul_data,
+    output wire [                31:0] mul_result,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
     input  wire [                 1:0] MEM_addr_1_0,
     output wire [                31:0] MEM_result
 );
-    assign done = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
+    assign done       = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
+
+    assign mul_result = mul_is_low ? mul_data[31:0] : mul_data[63:32];
 
     wire [3:0] MEM_byte_enable;
     decoder #(

@@ -15,10 +15,12 @@ module ID_stage (
     input  wire [                    31:0] rj_data,
     output wire [                     4:0] GPR_read_num2,
     input  wire [                    31:0] rkd_data,
-    output wire [                    31:0] CNT_data,
+    output wire [                    31:0] CNT_result,
     output wire                            ALU_src1_is_PC,
     output wire                            ALU_src2_is_imm,
     output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire                            mul_div_unsigned,
+    output wire                            mul_is_low,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
@@ -43,10 +45,9 @@ module ID_stage (
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
     wire GPR_read_src2_is_rd;
-    wire CNT_is_high;
+    wire CNT_is_low;
     wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
-    wire [31:0] CNT_high;
-    wire [31:0] CNT_low;
+    wire [63:0] CNT_data;
     wire CSR_number_is_TID;
     wire CSR_mask;
 
@@ -75,10 +76,12 @@ module ID_stage (
         .imm_src            (imm_src),
         .offs_src           (offs_src),
         .GPR_read_src2_is_rd(GPR_read_src2_is_rd),
-        .CNT_is_high        (CNT_is_high),
+        .CNT_is_low         (CNT_is_low),
         .ALU_src1_is_PC     (ALU_src1_is_PC),
         .ALU_src2_is_imm    (ALU_src2_is_imm),
         .ALU_operation      (ALU_operation),
+        .mul_div_unsigned   (mul_div_unsigned),
+        .mul_is_low         (mul_is_low),
         .MEM_read           (MEM_read),
         .MEM_write          (MEM_write),
         .GPR_write          (GPR_write),
@@ -102,11 +105,10 @@ module ID_stage (
     StableCounter stable_counter (
         .clk  (clk),
         .reset(reset),
-        .high (CNT_high),
-        .low  (CNT_low)
+        .data (CNT_data)
     );
 
-    assign CNT_data = CNT_is_high ? CNT_high : CNT_low;
+    assign CNT_result = CNT_is_low ? CNT_data[31:0] : CNT_data[63:32];
 
     assign rj_eq_rd = rj_data == rkd_data;
     assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
@@ -121,25 +123,9 @@ module ID_stage (
                       branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
                       branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
-    adder #(
-        .ADDEND1_WIDTH(32),
-        .ADDEND2_WIDTH(32),
-        .CARRY        (0)
-    ) target_PC_adder (
-        .addend1(jump ? rj_data : PC),
-        .addend2(offs),
-        .sum    (target_PC)
-    );
+    assign target_PC = (jump ? rj_data : PC) + offs;
 
-    adder #(
-        .ADDEND1_WIDTH(32),
-        .ADDEND2_WIDTH(3),
-        .CARRY        (0)
-    ) link_adder (
-        .addend1(PC),
-        .addend2(3'h4),
-        .sum    (link)
-    );
+    assign link = PC + 3'h4;
 
     // si20 is used to lu12i_w
     assign imm = {32{imm_src[`IMM_SRC_4]}} & 32'h4 |
