@@ -156,7 +156,6 @@ module mycpu_top (
     wire                            ID_ALU_src2_is_imm;
     wire [       `ALU_OP_WIDTH-1:0] ID_ALU_operation;
     wire                            ID_mul_div_unsigned;
-    wire                            ID_mul_is_low;
     wire [     `MEM_READ_WIDTH-1:0] ID_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] ID_MEM_write;
 
@@ -195,10 +194,8 @@ module mycpu_top (
     wire                            EXE_ALU_src2_is_imm;
     wire [       `ALU_OP_WIDTH-1:0] EXE_ALU_operation;
     wire                            EXE_mul_div_unsigned;
-    wire                            EXE_mul_is_low;
     wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write;
-    wire [                    31:0] EXE_MEM_addr;
 
     wire                            MEM_done;
     wire                            MEM_valid;
@@ -222,11 +219,12 @@ module mycpu_top (
     wire [`GPR_WRITE_SRC_WIDTH-1:0] MEM_GPR_write_src;
     wire [                    31:0] MEM_CNT_result;
     wire [                    31:0] MEM_ALU_result;
-    wire                            MEM_mul_is_low;
-    wire [                    63:0] MEM_mul_data;
-    wire [                    31:0] MEM_mul_result;
     wire [                    31:0] MEM_MEM_result;
     wire [                    31:0] MEM_forward_data;
+
+    wire [                     1:0] MEM_ALU_operation_mul;
+    wire [                    63:0] MEM_mul_result;
+    wire [                    31:0] MEM_EXE_ALU_result;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_number;
     wire                            MEM_CSR_write;
@@ -234,7 +232,6 @@ module mycpu_top (
 
     wire [     `MEM_READ_WIDTH-1:0] MEM_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write;
-    wire [                    31:0] MEM_MEM_addr;
 
     wire                            WB_done;
     wire                            WB_valid;
@@ -259,7 +256,6 @@ module mycpu_top (
     wire [                    31:0] WB_CNT_result;
     wire [                    31:0] WB_ALU_result;
     wire [                    31:0] WB_MEM_result;
-    wire [                    31:0] WB_mul_result;
     // wire [                31:0] WB_forward_data;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] WB_CSR_number;
@@ -268,8 +264,6 @@ module mycpu_top (
     wire                            WB_CSR_write;
     wire                            WB_CSR_write_enable;
     wire [                    31:0] WB_CSR_write_data;
-
-    wire [                    31:0] WB_MEM_addr;
 
     AXI_Bridge axi_bridge (
         .aclk             (aclk),
@@ -413,7 +407,6 @@ module mycpu_top (
         .ALU_src2_is_imm (ID_ALU_src2_is_imm),
         .ALU_operation   (ID_ALU_operation),
         .mul_div_unsigned(ID_mul_div_unsigned),
-        .mul_is_low      (ID_mul_is_low),
         .MEM_read        (ID_MEM_read),
         .MEM_write       (ID_MEM_write),
         .GPR_write       (ID_GPR_write),
@@ -546,7 +539,6 @@ module mycpu_top (
         .ID_ALU_src2_is_imm  (ID_ALU_src2_is_imm),
         .ID_ALU_operation    (ID_ALU_operation),
         .ID_mul_div_unsigned (ID_mul_div_unsigned),
-        .ID_mul_is_low       (ID_mul_is_low),
         .ID_MEM_read         (ID_MEM_read),
         .ID_MEM_write        (ID_MEM_write),
         .ID_GPR_write        (ID_GPR_write),
@@ -572,7 +564,6 @@ module mycpu_top (
         .EXE_ALU_src2_is_imm (EXE_ALU_src2_is_imm),
         .EXE_ALU_operation   (EXE_ALU_operation),
         .EXE_mul_div_unsigned(EXE_mul_div_unsigned),
-        .EXE_mul_is_low      (EXE_mul_is_low),
         .EXE_MEM_read        (EXE_MEM_read),
         .EXE_MEM_write       (EXE_MEM_write),
         .EXE_GPR_write       (EXE_GPR_write),
@@ -619,7 +610,6 @@ module mycpu_top (
         .MEM_read         (EXE_MEM_read),
         .MEM_write        (EXE_MEM_write),
         .ALU_result       (EXE_ALU_result),
-        .MEM_addr         (EXE_MEM_addr),
         .ALE              (EXE_ALE)
     );
 
@@ -628,7 +618,7 @@ module mycpu_top (
         .mul_unsigned(EXE_mul_div_unsigned),
         .factor1     (EXE_rj_data),
         .factor2     (EXE_rkd_data),
-        .product     (MEM_mul_data)
+        .product     (MEM_mul_result)
     );
 
     assign EXE_exception = {
@@ -640,59 +630,57 @@ module mycpu_top (
                               {32{EXE_GPR_write_src[`GPR_WRITE_SRC_CNT]}} & EXE_CNT_result;
 
     MEM_reg mem_reg (
-        .clk               (clk),
-        .reset             (reset),
-        .flush             (|exception | __return),
-        .MEM_done          (MEM_done),
-        .WB_ready          (WB_ready),
-        .EXE_to_MEM_valid  (EXE_to_MEM_valid),
-        .MEM_valid         (MEM_valid),
-        .MEM_ready         (MEM_ready),
-        .MEM_to_WB_valid   (MEM_to_WB_valid),
-        .EXE_PC            (EXE_PC),
-        .EXE_rd_data       (EXE_rkd_data),
-        .EXE_CNT_result    (EXE_CNT_result),
-        .EXE_ALU_result    (EXE_ALU_result),
-        .EXE_mul_is_low    (EXE_mul_is_low),
-        .EXE_MEM_read      (EXE_MEM_read),
-        .EXE_MEM_write     (EXE_MEM_write),
-        .EXE_MEM_addr      (EXE_MEM_addr),
-        .EXE_GPR_write     (EXE_GPR_write),
-        .EXE_GPR_write_num (EXE_GPR_write_num),
-        .EXE_GPR_write_src (EXE_GPR_write_src),
-        .EXE_CSR_number    (EXE_CSR_number),
-        .EXE_CSR_write     (EXE_CSR_write),
-        .EXE_CSR_write_mask(EXE_CSR_write_mask),
-        .EXE_return        (EXE_return),
-        .EXE_GPR_new       (EXE_GPR_new),
-        .EXE_INT           (EXE_INT),
-        .EXE_ADEF          (EXE_ADEF),
-        .EXE_ALE           (EXE_ALE),
-        .EXE_SYS           (EXE_SYS),
-        .EXE_BRK           (EXE_BRK),
-        .EXE_INE           (EXE_INE),
-        .MEM_PC            (MEM_PC),
-        .MEM_rd_data       (MEM_rd_data),
-        .MEM_CNT_result    (MEM_CNT_result),
-        .MEM_ALU_result    (MEM_ALU_result),
-        .MEM_mul_is_low    (MEM_mul_is_low),
-        .MEM_MEM_read      (MEM_MEM_read),
-        .MEM_MEM_write     (MEM_MEM_write),
-        .MEM_MEM_addr      (MEM_MEM_addr),
-        .MEM_GPR_write     (MEM_GPR_write),
-        .MEM_GPR_write_num (MEM_GPR_write_num),
-        .MEM_GPR_write_src (MEM_GPR_write_src),
-        .MEM_CSR_number    (MEM_CSR_number),
-        .MEM_CSR_write     (MEM_CSR_write),
-        .MEM_CSR_write_mask(MEM_CSR_write_mask),
-        .MEM_return        (MEM_return),
-        .MEM_GPR_new       (MEM_GPR_new),
-        .MEM_INT           (MEM_INT),
-        .MEM_ADEF          (MEM_ADEF),
-        .MEM_ALE           (MEM_ALE),
-        .MEM_SYS           (MEM_SYS),
-        .MEM_BRK           (MEM_BRK),
-        .MEM_INE           (MEM_INE)
+        .clk                  (clk),
+        .reset                (reset),
+        .flush                (|exception | __return),
+        .MEM_done             (MEM_done),
+        .WB_ready             (WB_ready),
+        .EXE_to_MEM_valid     (EXE_to_MEM_valid),
+        .MEM_valid            (MEM_valid),
+        .MEM_ready            (MEM_ready),
+        .MEM_to_WB_valid      (MEM_to_WB_valid),
+        .EXE_PC               (EXE_PC),
+        .EXE_rd_data          (EXE_rkd_data),
+        .EXE_CNT_result       (EXE_CNT_result),
+        .EXE_ALU_operation_mul(EXE_ALU_operation[`ALU_OP_MULH:`ALU_OP_MUL]),
+        .EXE_ALU_result       (EXE_ALU_result),
+        .EXE_MEM_read         (EXE_MEM_read),
+        .EXE_MEM_write        (EXE_MEM_write),
+        .EXE_GPR_write        (EXE_GPR_write),
+        .EXE_GPR_write_num    (EXE_GPR_write_num),
+        .EXE_GPR_write_src    (EXE_GPR_write_src),
+        .EXE_CSR_number       (EXE_CSR_number),
+        .EXE_CSR_write        (EXE_CSR_write),
+        .EXE_CSR_write_mask   (EXE_CSR_write_mask),
+        .EXE_return           (EXE_return),
+        .EXE_GPR_new          (EXE_GPR_new),
+        .EXE_INT              (EXE_INT),
+        .EXE_ADEF             (EXE_ADEF),
+        .EXE_ALE              (EXE_ALE),
+        .EXE_SYS              (EXE_SYS),
+        .EXE_BRK              (EXE_BRK),
+        .EXE_INE              (EXE_INE),
+        .MEM_PC               (MEM_PC),
+        .MEM_rd_data          (MEM_rd_data),
+        .MEM_CNT_result       (MEM_CNT_result),
+        .MEM_ALU_operation_mul(MEM_ALU_operation_mul),
+        .MEM_EXE_ALU_result   (MEM_EXE_ALU_result),
+        .MEM_MEM_read         (MEM_MEM_read),
+        .MEM_MEM_write        (MEM_MEM_write),
+        .MEM_GPR_write        (MEM_GPR_write),
+        .MEM_GPR_write_num    (MEM_GPR_write_num),
+        .MEM_GPR_write_src    (MEM_GPR_write_src),
+        .MEM_CSR_number       (MEM_CSR_number),
+        .MEM_CSR_write        (MEM_CSR_write),
+        .MEM_CSR_write_mask   (MEM_CSR_write_mask),
+        .MEM_return           (MEM_return),
+        .MEM_GPR_new          (MEM_GPR_new),
+        .MEM_INT              (MEM_INT),
+        .MEM_ADEF             (MEM_ADEF),
+        .MEM_ALE              (MEM_ALE),
+        .MEM_SYS              (MEM_SYS),
+        .MEM_BRK              (MEM_BRK),
+        .MEM_INE              (MEM_INE)
     );
 
     MEM_stage mem_stage (
@@ -700,12 +688,12 @@ module mycpu_top (
         .exception        (MEM_exception),
         .data_sram_data_ok(data_sram_data_ok),
         .data_sram_rdata  (data_sram_rdata),
-        .mul_is_low       (MEM_mul_is_low),
-        .mul_data         (MEM_mul_data),
+        .ALU_operation_mul(MEM_ALU_operation_mul),
         .mul_result       (MEM_mul_result),
+        .EXE_ALU_result   (MEM_EXE_ALU_result),
         .MEM_read         (MEM_MEM_read),
         .MEM_write        (MEM_MEM_write),
-        .MEM_addr_1_0     (MEM_MEM_addr[1:0]),
+        .ALU_result       (MEM_ALU_result),
         .MEM_result       (MEM_MEM_result)
     );
 
@@ -714,8 +702,7 @@ module mycpu_top (
     };
 
     assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CNT]}} & MEM_CNT_result |
-                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result |
-                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_MUL]}} & MEM_mul_result;
+                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result;
 
     WB_reg wb_reg (
         .clk               (clk),
@@ -729,9 +716,7 @@ module mycpu_top (
         .MEM_rd_data       (MEM_rd_data),
         .MEM_CNT_result    (MEM_CNT_result),
         .MEM_ALU_result    (MEM_ALU_result),
-        .MEM_mul_result    (MEM_mul_result),
         .MEM_MEM_result    (MEM_MEM_result),
-        .MEM_MEM_addr      (MEM_MEM_addr),
         .MEM_GPR_write     (MEM_GPR_write),
         .MEM_GPR_write_num (MEM_GPR_write_num),
         .MEM_GPR_write_src (MEM_GPR_write_src),
@@ -749,9 +734,7 @@ module mycpu_top (
         .WB_rd_data        (WB_rd_data),
         .WB_CNT_result     (WB_CNT_result),
         .WB_ALU_result     (WB_ALU_result),
-        .WB_mul_result     (WB_mul_result),
         .WB_MEM_result     (WB_MEM_result),
-        .WB_MEM_addr       (WB_MEM_addr),
         .WB_GPR_write      (WB_GPR_write),
         .WB_GPR_write_num  (WB_GPR_write_num),
         .WB_GPR_write_src  (WB_GPR_write_src),
@@ -773,7 +756,6 @@ module mycpu_top (
         .exception       (WB_exception),
         .CNT_result      (WB_CNT_result),
         .ALU_result      (WB_ALU_result),
-        .mul_result      (WB_mul_result),
         .MEM_result      (WB_MEM_result),
         .CSR_read_data   (WB_CSR_read_data),
         .GPR_write       (WB_GPR_write),
@@ -807,7 +789,7 @@ module mycpu_top (
         .exception   (exception),
         .__return    (__return),
         .PC          (PC),
-        .vaddr       (WB_MEM_addr),          // TODO: delay memory write
+        .vaddr       (WB_ALU_result),        // TODO: delay memory write
         .interupt    (ID_irq),
         .entry       (entry),
         .raddr       (raddr)

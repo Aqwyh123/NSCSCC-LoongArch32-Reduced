@@ -9,7 +9,6 @@ module WB_stage (
     // data signals
     input  wire [                    31:0] CNT_result,
     input  wire [                    31:0] ALU_result,
-    input  wire [                    31:0] mul_result,
     input  wire [                    31:0] MEM_result,
     input  wire [                    31:0] CSR_read_data,
     input  wire                            GPR_write,
@@ -25,7 +24,6 @@ module WB_stage (
 
     assign GPR_write_data = {32{GPR_write_src[`GPR_WRITE_SRC_CNT]}} & CNT_result |
                             {32{GPR_write_src[`GPR_WRITE_SRC_ALU]}} & ALU_result |
-                            {32{GPR_write_src[`GPR_WRITE_SRC_MUL]}} & mul_result |
                             {32{GPR_write_src[`GPR_WRITE_SRC_MEM]}} & MEM_result |
                             {32{GPR_write_src[`GPR_WRITE_SRC_CSR]}} & CSR_read_data;
 

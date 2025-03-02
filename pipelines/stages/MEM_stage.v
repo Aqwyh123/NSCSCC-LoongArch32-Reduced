@@ -9,24 +9,26 @@ module MEM_stage (
     input  wire                        data_sram_data_ok,
     input  wire [                31:0] data_sram_rdata,
     // data signals
-    input  wire                        mul_is_low,
-    input  wire [                63:0] mul_data,
-    output wire [                31:0] mul_result,
+    input  wire [                 1:0] ALU_operation_mul,
+    input  wire [                63:0] mul_result,
+    input  wire [                31:0] EXE_ALU_result,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    input  wire [                 1:0] MEM_addr_1_0,
+    output wire [                31:0] ALU_result,
     output wire [                31:0] MEM_result
 );
-    assign done       = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
+    assign done = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
 
-    assign mul_result = mul_is_low ? mul_data[31:0] : mul_data[63:32];
+    assign ALU_result = ALU_operation_mul[0] ? mul_result[31:0] :
+                        ALU_operation_mul[1] ? mul_result[63:32] :
+                        EXE_ALU_result;
 
     wire [3:0] MEM_byte_enable;
     decoder #(
         .IN_WIDTH (2),
         .OUT_WIDTH(4)
     ) decoder_2_4 (
-        .in (MEM_addr_1_0),
+        .in (EXE_ALU_result[1:0]),
         .out(MEM_byte_enable)
     );
 
@@ -38,7 +40,7 @@ module MEM_stage (
                                   {{24{data_sram_rdata[23]}}, data_sram_rdata[23:16]} |
                                   {32{MEM_byte_enable[3]}} &
                                   {{24{data_sram_rdata[31]}}, data_sram_rdata[31:24]};
-    wire [31:0] MEM_half_result = MEM_addr_1_0[1] ?
+    wire [31:0] MEM_half_result = EXE_ALU_result[1] ?
                                   {{16{data_sram_rdata[31]}}, data_sram_rdata[31:16]} :
                                   {{16{data_sram_rdata[15]}}, data_sram_rdata[15:0]};
     wire [31:0] MEM_byteu_result = {32{MEM_byte_enable[0]}} &
@@ -49,7 +51,7 @@ module MEM_stage (
                                    {24'b0, data_sram_rdata[23:16]} |
                                    {32{MEM_byte_enable[3]}} &
                                    {24'b0, data_sram_rdata[31:24]};
-    wire [31:0] MEM_halfu_result = MEM_addr_1_0[1] ?
+    wire [31:0] MEM_halfu_result = EXE_ALU_result[1] ?
                                    {16'b0, data_sram_rdata[31:16]} :
                                    {16'b0, data_sram_rdata[15:0]};
     assign MEM_result = {32{MEM_read[`MEM_READ_BYTE]}} & MEM_byte_result |

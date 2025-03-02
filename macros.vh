@@ -49,7 +49,7 @@
 `define BRANCH_LT 2
 `define BRANCH_LTU 3
 
-`define ALU_OP_WIDTH 14
+`define ALU_OP_WIDTH 16
 `define ALU_OP_ADD 0
 `define ALU_OP_SUB 1
 `define ALU_OP_SLT 2
@@ -64,6 +64,8 @@
 `define ALU_OP_LUI 11
 `define ALU_OP_DIV 12
 `define ALU_OP_MOD 13
+`define ALU_OP_MUL 14
+`define ALU_OP_MULH 15
 
 `define MEM_READ_WIDTH 5
 `define MEM_READ_BYTE 0

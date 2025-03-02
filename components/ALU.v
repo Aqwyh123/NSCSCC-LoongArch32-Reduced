@@ -10,8 +10,7 @@ module ALU (
     input  wire [             31:0] operand1,
     input  wire [             31:0] operand2,
     output wire [             31:0] result,
-    output wire                     done,
-    output wire [             31:0] MEM_addr
+    output wire                     done
 );
     wire        op_add = operation[`ALU_OP_ADD];
     wire        op_sub = operation[`ALU_OP_SUB];
@@ -122,7 +121,5 @@ module ALU (
                   | ({32{op_lui       }} & lui_result)
                   | ({32{op_div       }} & div_result)
                   | ({32{op_mod       }} & mod_result);
-
-    assign MEM_addr = add_sub_result;
 endmodule
 

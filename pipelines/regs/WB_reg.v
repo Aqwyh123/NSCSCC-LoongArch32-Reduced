@@ -15,9 +15,7 @@ module WB_reg (
     input  wire [                    31:0] MEM_rd_data,
     input  wire [                    31:0] MEM_CNT_result,
     input  wire [                    31:0] MEM_ALU_result,
-    input  wire [                    31:0] MEM_mul_result,
     input  wire [                    31:0] MEM_MEM_result,
-    input  wire [                    31:0] MEM_MEM_addr,
     input  wire                            MEM_GPR_write,
     input  wire [                     4:0] MEM_GPR_write_num,
     input  wire [`GPR_WRITE_SRC_WIDTH-1:0] MEM_GPR_write_src,
@@ -35,9 +33,7 @@ module WB_reg (
     output reg  [                    31:0] WB_rd_data,
     output reg  [                    31:0] WB_CNT_result,
     output reg  [                    31:0] WB_ALU_result,
-    output reg  [                    31:0] WB_mul_result,
     output reg  [                    31:0] WB_MEM_result,
-    output reg  [                    31:0] WB_MEM_addr,
     output reg                             WB_GPR_write,
     output reg  [                     4:0] WB_GPR_write_num,
     output reg  [`GPR_WRITE_SRC_WIDTH-1:0] WB_GPR_write_src,
@@ -68,9 +64,7 @@ module WB_reg (
                 WB_rd_data        <= MEM_rd_data;
                 WB_CNT_result     <= MEM_CNT_result;
                 WB_ALU_result     <= MEM_ALU_result;
-                WB_mul_result     <= MEM_mul_result;
                 WB_MEM_result     <= MEM_MEM_result;
-                WB_MEM_addr       <= MEM_MEM_addr;
                 WB_GPR_write      <= MEM_GPR_write;
                 WB_GPR_write_src  <= MEM_GPR_write_src;
                 WB_GPR_write_num  <= MEM_GPR_write_num;

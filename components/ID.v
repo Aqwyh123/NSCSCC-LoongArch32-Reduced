@@ -13,7 +13,6 @@ module ID (
     output wire                            ALU_src2_is_imm,      // default : rk/rd
     output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
     output wire                            mul_div_unsigned,
-    output wire                            mul_is_low,           // default : high
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
@@ -281,10 +280,10 @@ module ID (
     assign ALU_operation[`ALU_OP_LUI] = lu12i_w;
     assign ALU_operation[`ALU_OP_DIV] = div_w | div_wu;
     assign ALU_operation[`ALU_OP_MOD] = mod_w | mod_wu;
+    assign ALU_operation[`ALU_OP_MUL] = mul_w;
+    assign ALU_operation[`ALU_OP_MULH] = mulh_w | mulhu_wu;
 
     assign mul_div_unsigned = mulhu_wu | div_wu | mod_wu;
-
-    assign mul_is_low = mul_w;
 
     assign MEM_read[`MEM_READ_BYTE] = ld_b;
     assign MEM_read[`MEM_READ_HALF] = ld_h;
