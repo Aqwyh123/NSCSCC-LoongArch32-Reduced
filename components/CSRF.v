@@ -13,14 +13,13 @@ module CSRF (
     input  wire [                  7:0] hw_int,
     input  wire                         ip_int,
     input  wire [ `EXCEPTION_WIDTH-1:0] exception,
-    input  wire                         __return,
+    input  wire                         ereturn,
     input  wire [                 31:0] PC,
     input  wire [                 31:0] vaddr,
     output wire                         interupt,
-    output wire [                 31:0] entry,
-    output wire [                 31:0] raddr
+    output wire [                 31:0] eentry,
+    output wire [                 31:0] eraddr
 );
-
     reg [31:0] CRMD;
     reg [31:0] PRMD;
     reg [31:0] ECFG;
@@ -59,7 +58,7 @@ module CSRF (
         end else if (|exception) begin
             CRMD[`CSR_CRMD_PLV] <= 2'b0;
             CRMD[`CSR_CRMD_IE]  <= 1'b0;
-        end else if (__return) begin
+        end else if (ereturn) begin
             CRMD[`CSR_CRMD_PLV] <= PRMD[`CSR_PRMD_PPLV];
             CRMD[`CSR_CRMD_IE]  <= PRMD[`CSR_PRMD_PIE];
         end else if (write_enable & number == `CSR_CRMD) begin
@@ -230,6 +229,6 @@ module CSRF (
 
     assign interupt = |(ESTAT_IS & ECFG_LIE) & CRMD[`CSR_CRMD_IE];
 
-    assign entry = EENTRY;
-    assign raddr = ERA;
+    assign eentry = EENTRY;
+    assign eraddr = ERA;
 endmodule

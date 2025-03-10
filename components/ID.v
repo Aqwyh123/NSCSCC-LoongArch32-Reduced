@@ -21,7 +21,7 @@ module ID (
     output wire                            CSR_number_is_TID,    // default : csr
     output wire                            CSR_write,
     output wire                            CSR_mask,
-    output wire                            __return,
+    output wire                            ereturn,
     output wire                            syscall,
     output wire                            __break,
     output wire                            not_existed,
@@ -323,7 +323,7 @@ module ID (
 
     assign CSR_mask = csrxchg;
 
-    assign __return = ertn;
+    assign ereturn = ertn;
 
     assign not_existed = ~rdcntid_w & ~rdcntvl_w & ~rdcntvh_w &
                          ~add_w & ~sub_w & ~slt & ~sltu & ~__nor & ~__and & ~__or & ~__xor &

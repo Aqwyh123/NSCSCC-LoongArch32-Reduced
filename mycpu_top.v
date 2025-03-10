@@ -75,19 +75,14 @@ module mycpu_top (
 
     wire [                    31:0] PC;
     wire [    `EXCEPTION_WIDTH-1:0] exception;
-    wire                            __return;
-    wire [                    31:0] entry;
-    wire [                    31:0] raddr;
+    wire                            ereturn;
+    wire [                    31:0] eentry;
+    wire [                    31:0] eraddr;
 
-    wire [                    31:0] pre_IF_PC;
-    wire                            pre_IF_to_IF_valid;
-
-    wire                            IF_done;
-    wire                            IF_valid;
-    wire                            IF_ready;
     wire                            IF_to_ID_valid;
 
     wire [                    31:0] IF_PC;
+    wire [                    31:0] IF_link;
     wire [                    31:0] IF_inst;
     // wire [    `EXCEPTION_WIDTH-1:0] IF_exception;
     wire                            IF_ADEF;
@@ -99,8 +94,8 @@ module mycpu_top (
 
     wire [                    31:0] ID_PC;
     wire [                    31:0] ID_inst;
-    // wire [    `EXCEPTION_WIDTH-1:0] ID_exception;
-    wire                            ID_return;
+    wire [    `EXCEPTION_WIDTH-1:0] ID_exception;
+    wire                            ID_ereturn;
     wire                            ID_irq;
     wire                            ID_INT;
     wire                            ID_ADEF;
@@ -166,7 +161,7 @@ module mycpu_top (
 
     wire [                    31:0] EXE_PC;
     wire [    `EXCEPTION_WIDTH-1:0] EXE_exception;
-    wire                            EXE_return;
+    wire                            EXE_ereturn;
     wire                            EXE_INT;
     wire                            EXE_ADEF;
     wire                            EXE_ALE;
@@ -204,7 +199,7 @@ module mycpu_top (
 
     wire [                    31:0] MEM_PC;
     wire [    `EXCEPTION_WIDTH-1:0] MEM_exception;
-    wire                            MEM_return;
+    wire                            MEM_ereturn;
     wire                            MEM_INT;
     wire                            MEM_ADEF;
     wire                            MEM_ALE;
@@ -239,7 +234,7 @@ module mycpu_top (
 
     wire [                    31:0] WB_PC;
     wire [    `EXCEPTION_WIDTH-1:0] WB_exception;
-    wire                            WB_return;
+    wire                            WB_ereturn;
     wire                            WB_INT;
     wire                            WB_ADEF;
     wire                            WB_ALE;
@@ -326,47 +321,31 @@ module mycpu_top (
         .bready           (bready)
     );
 
-    IF_reg if_reg (
-        .clk               (clk),
-        .reset             (reset),
-        .exception         (|exception),
-        .__return          (__return),
-        .bj_taken          (ID_bj_taken),
-        .entry             (entry),
-        .raddr             (raddr),
-        .target            (ID_target_PC),
-        .IF_done           (IF_done),
-        .ID_ready          (ID_ready),
-        .pre_IF_to_IF_valid(pre_IF_to_IF_valid),
-        .IF_valid          (IF_valid),
-        .IF_ready          (IF_ready),
-        .IF_to_ID_valid    (IF_to_ID_valid),
-        .pre_IF_PC         (pre_IF_PC),
-        .IF_PC             (IF_PC)
-    );
-
     IF_stage if_stage (
-        .clk               (clk),
-        .reset             (reset),
-        .flush             (|exception | __return | ID_bj_taken),
-        .IF_valid          (IF_valid),
-        .IF_ready          (IF_ready),
-        .ID_ready          (ID_ready),
-        .pre_IF_to_IF_valid(pre_IF_to_IF_valid),
-        .IF_done           (IF_done),
-        .inst_sram_req     (inst_sram_req),
-        .inst_sram_wr      (inst_sram_wr),
-        .inst_sram_size    (inst_sram_size),
-        .inst_sram_addr    (inst_sram_addr),
-        .inst_sram_wstrb   (inst_sram_wstrb),
-        .inst_sram_wdata   (inst_sram_wdata),
-        .inst_sram_addr_ok (inst_sram_addr_ok),
-        .inst_sram_data_ok (inst_sram_data_ok),
-        .inst_sram_rdata   (inst_sram_rdata),
-        .PC                (IF_PC),
-        .pre_IF_PC         (pre_IF_PC),
-        .inst              (IF_inst),
-        .ADEF              (IF_ADEF)
+        .clk              (clk),
+        .reset            (reset),
+        .exception        (|exception),
+        .ereturn          (ereturn),
+        .eentry           (eentry),
+        .eraddr           (eraddr),
+        .bj_taken         (ID_bj_taken),
+        .bj_stall         (ID_bj_stall),
+        .bj_target        (ID_target_PC),
+        .ID_ready         (ID_ready),
+        .IF_to_ID_valid   (IF_to_ID_valid),
+        .inst_sram_req    (inst_sram_req),
+        .inst_sram_wr     (inst_sram_wr),
+        .inst_sram_size   (inst_sram_size),
+        .inst_sram_addr   (inst_sram_addr),
+        .inst_sram_wstrb  (inst_sram_wstrb),
+        .inst_sram_wdata  (inst_sram_wdata),
+        .inst_sram_addr_ok(inst_sram_addr_ok),
+        .inst_sram_data_ok(inst_sram_data_ok),
+        .inst_sram_rdata  (inst_sram_rdata),
+        .PC               (IF_PC),
+        .link             (IF_link),
+        .inst             (IF_inst),
+        .ADEF             (IF_ADEF)
     );
 
     // assign IF_exception = {9'b0, IF_ADEF, 6'b0};
@@ -374,7 +353,7 @@ module mycpu_top (
     ID_reg id_reg (
         .clk            (clk),
         .reset          (reset),
-        .flush          (|exception | __return),
+        .flush          (|exception | ereturn),
         .ID_done        (ID_done),
         .EXE_ready      (EXE_ready),
         .IF_to_ID_valid (IF_to_ID_valid),
@@ -382,9 +361,11 @@ module mycpu_top (
         .ID_ready       (ID_ready),
         .ID_to_EXE_valid(ID_to_EXE_valid),
         .IF_PC          (IF_PC),
+        .IF_link        (IF_link),
         .IF_inst        (IF_inst),
         .IF_ADEF        (IF_ADEF),
         .ID_PC          (ID_PC),
+        .ID_link        (ID_link),
         .ID_inst        (ID_inst),
         .ID_ADEF        (ID_ADEF)
     );
@@ -393,7 +374,6 @@ module mycpu_top (
         .clk             (clk),
         .reset           (reset),
         .valid           (ID_valid),
-        .bj_stall        (ID_bj_stall),
         .inst            (ID_inst),
         .jump            (ID_jump),
         .branch          (ID_branch),
@@ -421,8 +401,7 @@ module mycpu_top (
         .bj_taken        (ID_bj_taken),
         .target_PC       (ID_target_PC),
         .imm             (ID_imm),
-        .link            (ID_link),
-        .__return        (ID_return),
+        .ereturn         (ID_ereturn),
         .SYS             (ID_SYS),
         .BRK             (ID_BRK),
         .INE             (ID_INE)
@@ -450,7 +429,7 @@ module mycpu_top (
                                MEM_valid & (ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
                                WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3));
 
-    // assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
+    assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
 
     assign ID_EXE_GPR1_A = |EXE_GPR_write_num & EXE_GPR_write &
                             ID_GPR_read_num1 == EXE_GPR_write_num;
@@ -487,21 +466,21 @@ module mycpu_top (
                           WB_CSR_number == `CSR_ESTAT & |WB_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
                           WB_CSR_number == `CSR_TCFG & |WB_CSR_write_mask[`CSR_TCFG_EN] |
                           WB_CSR_number == `CSR_TICLR & |WB_CSR_write_mask[`CSR_TICLR_CLR]);
-    assign ID_EXE_CSR_2 = ID_return & EXE_CSR_write &
+    assign ID_EXE_CSR_2 = ID_ereturn & EXE_CSR_write &
                          (EXE_CSR_number == `CSR_ERA & |EXE_CSR_write_mask[`CSR_ERA_PC] |
                           EXE_CSR_number == `CSR_PRMD & |EXE_CSR_write_mask[`CSR_PRMD_PPLV] |
                           EXE_CSR_number == `CSR_PRMD & |EXE_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_MEM_CSR_2 = ID_return & MEM_CSR_write &
+    assign ID_MEM_CSR_2 = ID_ereturn & MEM_CSR_write &
                          (MEM_CSR_number == `CSR_ERA & |MEM_CSR_write_mask[`CSR_ERA_PC] |
                           MEM_CSR_number == `CSR_PRMD & |MEM_CSR_write_mask[`CSR_PRMD_PPLV] |
                           MEM_CSR_number == `CSR_PRMD & |MEM_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_WB_CSR_2  = ID_return & WB_CSR_write &
+    assign ID_WB_CSR_2  = ID_ereturn & WB_CSR_write &
                          (WB_CSR_number == `CSR_ERA & |WB_CSR_write_mask[`CSR_ERA_PC] |
                           WB_CSR_number == `CSR_PRMD & |WB_CSR_write_mask[`CSR_PRMD_PPLV] |
                           WB_CSR_number == `CSR_PRMD & |WB_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_EXE_CSR_3 = EXE_return;
-    assign ID_MEM_CSR_3 = MEM_return;
-    assign ID_WB_CSR_3 = WB_return;
+    assign ID_EXE_CSR_3 = EXE_ereturn;
+    assign ID_MEM_CSR_3 = MEM_ereturn;
+    assign ID_WB_CSR_3 = WB_ereturn;
 
     assign ID_bj_stall = ID_jump & (EXE_valid & ID_EXE_GPR1_A &
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
@@ -517,12 +496,12 @@ module mycpu_top (
                                    ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
                       WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3);
 
-    assign ID_done = ~ID_stall;
+    assign ID_done = ~ID_stall | |ID_exception;
 
     EXE_reg exe_reg (
         .clk                 (clk),
         .reset               (reset),
-        .flush               (|exception | __return),
+        .flush               (|exception | ereturn),
         .EXE_done            (EXE_done),
         .MEM_ready           (MEM_ready),
         .ID_to_EXE_valid     (ID_to_EXE_valid),
@@ -547,7 +526,7 @@ module mycpu_top (
         .ID_CSR_number       (ID_CSR_number),
         .ID_CSR_write        (ID_CSR_write),
         .ID_CSR_write_mask   (ID_CSR_write_mask),
-        .ID_return           (ID_return),
+        .ID_ereturn          (ID_ereturn),
         .ID_GPR_new          (ID_GPR_new),
         .ID_INT              (ID_INT),
         .ID_ADEF             (ID_ADEF),
@@ -572,7 +551,7 @@ module mycpu_top (
         .EXE_CSR_number      (EXE_CSR_number),
         .EXE_CSR_write       (EXE_CSR_write),
         .EXE_CSR_write_mask  (EXE_CSR_write_mask),
-        .EXE_return          (EXE_return),
+        .EXE_ereturn         (EXE_ereturn),
         .EXE_GPR_new         (EXE_GPR_new),
         .EXE_INT             (EXE_INT),
         .EXE_ADEF            (EXE_ADEF),
@@ -632,7 +611,7 @@ module mycpu_top (
     MEM_reg mem_reg (
         .clk                  (clk),
         .reset                (reset),
-        .flush                (|exception | __return),
+        .flush                (|exception | ereturn),
         .MEM_done             (MEM_done),
         .WB_ready             (WB_ready),
         .EXE_to_MEM_valid     (EXE_to_MEM_valid),
@@ -652,7 +631,7 @@ module mycpu_top (
         .EXE_CSR_number       (EXE_CSR_number),
         .EXE_CSR_write        (EXE_CSR_write),
         .EXE_CSR_write_mask   (EXE_CSR_write_mask),
-        .EXE_return           (EXE_return),
+        .EXE_ereturn          (EXE_ereturn),
         .EXE_GPR_new          (EXE_GPR_new),
         .EXE_INT              (EXE_INT),
         .EXE_ADEF             (EXE_ADEF),
@@ -673,7 +652,7 @@ module mycpu_top (
         .MEM_CSR_number       (MEM_CSR_number),
         .MEM_CSR_write        (MEM_CSR_write),
         .MEM_CSR_write_mask   (MEM_CSR_write_mask),
-        .MEM_return           (MEM_return),
+        .MEM_ereturn          (MEM_ereturn),
         .MEM_GPR_new          (MEM_GPR_new),
         .MEM_INT              (MEM_INT),
         .MEM_ADEF             (MEM_ADEF),
@@ -707,7 +686,7 @@ module mycpu_top (
     WB_reg wb_reg (
         .clk               (clk),
         .reset             (reset),
-        .flush             (|exception | __return),
+        .flush             (|exception | ereturn),
         .WB_done           (WB_done),
         .MEM_to_WB_valid   (MEM_to_WB_valid),
         .WB_valid          (WB_valid),
@@ -723,7 +702,7 @@ module mycpu_top (
         .MEM_CSR_number    (MEM_CSR_number),
         .MEM_CSR_write     (MEM_CSR_write),
         .MEM_CSR_write_mask(MEM_CSR_write_mask),
-        .MEM_return        (MEM_return),
+        .MEM_ereturn       (MEM_ereturn),
         .MEM_INT           (MEM_INT),
         .MEM_ADEF          (MEM_ADEF),
         .MEM_ALE           (MEM_ALE),
@@ -741,7 +720,7 @@ module mycpu_top (
         .WB_CSR_number     (WB_CSR_number),
         .WB_CSR_write      (WB_CSR_write),
         .WB_CSR_write_mask (WB_CSR_write_mask),
-        .WB_return         (WB_return),
+        .WB_ereturn        (WB_ereturn),
         .WB_INT            (WB_INT),
         .WB_ADEF           (WB_ADEF),
         .WB_ALE            (WB_ALE),
@@ -787,15 +766,15 @@ module mycpu_top (
         .hw_int      (8'b0),
         .ip_int      (1'b0),
         .exception   (exception),
-        .__return    (__return),
+        .ereturn     (ereturn),
         .PC          (PC),
         .vaddr       (WB_ALU_result),        // TODO: delay memory write
         .interupt    (ID_irq),
-        .entry       (entry),
-        .raddr       (raddr)
+        .eentry      (eentry),
+        .eraddr      (eraddr)
     );
 
     assign PC        = WB_PC;
     assign exception = {16{WB_valid}} & WB_exception;
-    assign __return  = WB_valid & WB_return;
+    assign ereturn   = WB_valid & WB_ereturn;
 endmodule

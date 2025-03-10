@@ -31,7 +31,7 @@ module EXE_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] ID_CSR_number,
     input  wire                            ID_CSR_write,
     input  wire [                    31:0] ID_CSR_write_mask,
-    input  wire                            ID_return,
+    input  wire                            ID_ereturn,
     input  wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new,
     input  wire                            ID_INT,
     input  wire                            ID_ADEF,
@@ -56,7 +56,7 @@ module EXE_reg (
     output reg  [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_number,
     output reg                             EXE_CSR_write,
     output reg  [                    31:0] EXE_CSR_write_mask,
-    output reg                             EXE_return,
+    output reg                             EXE_ereturn,
     output reg  [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     output reg                             EXE_INT,
     output reg                             EXE_ADEF,
@@ -95,7 +95,7 @@ module EXE_reg (
                 EXE_CSR_number       <= ID_CSR_number;
                 EXE_CSR_write        <= ID_CSR_write;
                 EXE_CSR_write_mask   <= ID_CSR_write_mask;
-                EXE_return           <= ID_return;
+                EXE_ereturn          <= ID_ereturn;
                 EXE_GPR_new          <= ID_GPR_new;
                 EXE_INT              <= ID_INT;
                 EXE_ADEF             <= ID_ADEF;

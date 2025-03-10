@@ -14,9 +14,11 @@ module ID_reg (
     output wire        ID_to_EXE_valid,
     // data signals
     input  wire [31:0] IF_PC,
+    input  wire [31:0] IF_link,
     input  wire [31:0] IF_inst,
     input  wire        IF_ADEF,
     output reg  [31:0] ID_PC,
+    output reg  [31:0] ID_link,
     output reg  [31:0] ID_inst,
     output reg         ID_ADEF
 );
@@ -34,6 +36,7 @@ module ID_reg (
             end
             if (IF_to_ID_valid & ID_ready) begin
                 ID_PC   <= IF_PC;
+                ID_link <= IF_link;
                 ID_inst <= IF_inst;
                 ID_ADEF <= IF_ADEF;
             end

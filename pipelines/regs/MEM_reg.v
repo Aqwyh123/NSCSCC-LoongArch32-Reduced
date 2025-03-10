@@ -26,7 +26,7 @@ module MEM_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_number,
     input  wire                            EXE_CSR_write,
     input  wire [                    31:0] EXE_CSR_write_mask,
-    input  wire                            EXE_return,
+    input  wire                            EXE_ereturn,
     input  wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     input  wire                            EXE_INT,
     input  wire                            EXE_ADEF,
@@ -47,7 +47,7 @@ module MEM_reg (
     output reg  [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_number,
     output reg                             MEM_CSR_write,
     output reg  [                    31:0] MEM_CSR_write_mask,
-    output reg                             MEM_return,
+    output reg                             MEM_ereturn,
     output reg  [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new,
     output reg                             MEM_INT,
     output reg                             MEM_ADEF,
@@ -82,7 +82,7 @@ module MEM_reg (
                 MEM_CSR_number        <= EXE_CSR_number;
                 MEM_CSR_write         <= EXE_CSR_write;
                 MEM_CSR_write_mask    <= EXE_CSR_write_mask;
-                MEM_return            <= EXE_return;
+                MEM_ereturn           <= EXE_ereturn;
                 MEM_GPR_new           <= EXE_GPR_new;
                 MEM_INT               <= EXE_INT;
                 MEM_ADEF              <= EXE_ADEF;

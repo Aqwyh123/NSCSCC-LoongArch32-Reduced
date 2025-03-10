@@ -22,7 +22,7 @@ module WB_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_number,
     input  wire                            MEM_CSR_write,
     input  wire [                    31:0] MEM_CSR_write_mask,
-    input  wire                            MEM_return,
+    input  wire                            MEM_ereturn,
     input  wire                            MEM_INT,
     input  wire                            MEM_ADEF,
     input  wire                            MEM_ALE,
@@ -40,7 +40,7 @@ module WB_reg (
     output reg  [   `CSR_NUMBER_WIDTH-1:0] WB_CSR_number,
     output reg                             WB_CSR_write,
     output reg  [                    31:0] WB_CSR_write_mask,
-    output reg                             WB_return,
+    output reg                             WB_ereturn,
     output reg                             WB_INT,
     output reg                             WB_ADEF,
     output reg                             WB_ALE,
@@ -71,7 +71,7 @@ module WB_reg (
                 WB_CSR_number     <= MEM_CSR_number;
                 WB_CSR_write      <= MEM_CSR_write;
                 WB_CSR_write_mask <= MEM_CSR_write_mask;
-                WB_return         <= MEM_return;
+                WB_ereturn        <= MEM_ereturn;
                 WB_INT            <= MEM_INT;
                 WB_ADEF           <= MEM_ADEF;
                 WB_ALE            <= MEM_ALE;

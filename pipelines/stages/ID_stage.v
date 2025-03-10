@@ -5,7 +5,6 @@ module ID_stage (
     input  wire                            reset,
     // control signals
     input  wire                            valid,
-    input  wire                            bj_stall,
     // data signals
     input  wire [                    31:0] inst,
     input  wire [                    31:0] PC,
@@ -34,8 +33,7 @@ module ID_stage (
     output wire                            bj_taken,
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
-    output wire [                    31:0] link,
-    output wire                            __return,
+    output wire                            ereturn,
     output wire                            SYS,
     output wire                            BRK,
     output wire                            INE
@@ -88,7 +86,7 @@ module ID_stage (
         .CSR_number_is_TID  (CSR_number_is_TID),
         .CSR_write          (CSR_write),
         .CSR_mask           (CSR_mask),
-        .__return           (__return),
+        .ereturn            (ereturn),
         .syscall            (SYS),
         .__break            (BRK),
         .not_existed        (INE),
@@ -116,14 +114,12 @@ module ID_stage (
                   {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}},o21,2'b0} |
                   {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
-    assign bj_taken = valid & ~bj_stall & (jump | branch[`BRANCH_UNCOND] |
+    assign bj_taken = valid & (jump | branch[`BRANCH_UNCOND] |
                       branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
                       branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
                       branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
     assign target_PC = (jump ? rj_data : PC) + offs;
-
-    assign link = PC + 3'h4;
 
     // si20 is used to lu12i_w
     assign imm = {32{imm_src[`IMM_SRC_4]}} & 32'h4 |
