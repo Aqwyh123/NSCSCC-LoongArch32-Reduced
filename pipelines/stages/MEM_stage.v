@@ -25,8 +25,7 @@ module MEM_stage (
 
     wire [3:0] MEM_byte_enable;
     decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
+        .WIDTH(2)
     ) decoder_2_4 (
         .in (EXE_ALU_result[1:0]),
         .out(MEM_byte_enable)

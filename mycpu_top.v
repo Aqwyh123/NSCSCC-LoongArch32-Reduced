@@ -113,15 +113,9 @@ module mycpu_top (
     wire                            ID_EXE_GPR2_A;
     wire                            ID_EXE_GPR1_T;
     wire                            ID_EXE_GPR2_T;
-    wire                            ID_EXE_CSR_1;
-    wire                            ID_MEM_CSR_1;
-    wire                            ID_WB_CSR_1;
-    wire                            ID_EXE_CSR_2;
-    wire                            ID_MEM_CSR_2;
-    wire                            ID_WB_CSR_2;
-    wire                            ID_EXE_CSR_3;
-    wire                            ID_MEM_CSR_3;
-    wire                            ID_WB_CSR_3;
+    wire                            ID_EXE_CSR;
+    wire                            ID_MEM_CSR;
+    wire                            ID_WB_CSR;
 
     wire                            ID_GPR1_use;
     wire                            ID_GPR2_use;
@@ -425,9 +419,9 @@ module mycpu_top (
                          MEM_valid & ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
                          MEM_forward_data : ID_GPR_read_data2;
 
-    assign ID_INT = ID_irq & ~(EXE_valid & (ID_EXE_CSR_1 | ID_EXE_CSR_2 | ID_EXE_CSR_3) |
-                               MEM_valid & (ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
-                               WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3));
+    assign ID_INT = ID_irq & ~(EXE_valid & ID_EXE_CSR |
+                               MEM_valid & ID_MEM_CSR |
+                               WB_valid & ID_WB_CSR);
 
     assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
 
@@ -445,42 +439,27 @@ module mycpu_top (
     assign ID_MEM_GPR1_T = ID_GPR1_use & MEM_GPR_new[`GPR_NEW_WB];
     assign ID_MEM_GPR2_T = ID_GPR2_use & MEM_GPR_new[`GPR_NEW_WB];
 
-    assign ID_EXE_CSR_1 = EXE_CSR_write &
-                         (EXE_CSR_number == `CSR_CRMD & |EXE_CSR_write_mask[`CSR_CRMD_IE] |
-                          EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
-                          EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
-                          EXE_CSR_number == `CSR_ESTAT & |EXE_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
-                          EXE_CSR_number == `CSR_TCFG & |EXE_CSR_write_mask[`CSR_TCFG_EN] |
-                          EXE_CSR_number == `CSR_TICLR & |EXE_CSR_write_mask[`CSR_TICLR_CLR]);
-    assign ID_MEM_CSR_1 = MEM_CSR_write &
-                         (MEM_CSR_number == `CSR_CRMD & |MEM_CSR_write_mask[`CSR_CRMD_IE] |
-                          MEM_CSR_number == `CSR_ECFG & |MEM_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
-                          MEM_CSR_number == `CSR_ECFG & |MEM_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
-                          MEM_CSR_number == `CSR_ESTAT & |MEM_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
-                          MEM_CSR_number == `CSR_TCFG & |MEM_CSR_write_mask[`CSR_TCFG_EN] |
-                          MEM_CSR_number == `CSR_TICLR & |MEM_CSR_write_mask[`CSR_TICLR_CLR]);
-    assign ID_WB_CSR_1  = WB_CSR_write &
-                         (WB_CSR_number == `CSR_CRMD & |WB_CSR_write_mask[`CSR_CRMD_IE] |
-                          WB_CSR_number == `CSR_ECFG & |WB_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
-                          WB_CSR_number == `CSR_ECFG & |WB_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
-                          WB_CSR_number == `CSR_ESTAT & |WB_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
-                          WB_CSR_number == `CSR_TCFG & |WB_CSR_write_mask[`CSR_TCFG_EN] |
-                          WB_CSR_number == `CSR_TICLR & |WB_CSR_write_mask[`CSR_TICLR_CLR]);
-    assign ID_EXE_CSR_2 = ID_ereturn & EXE_CSR_write &
-                         (EXE_CSR_number == `CSR_ERA & |EXE_CSR_write_mask[`CSR_ERA_PC] |
-                          EXE_CSR_number == `CSR_PRMD & |EXE_CSR_write_mask[`CSR_PRMD_PPLV] |
-                          EXE_CSR_number == `CSR_PRMD & |EXE_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_MEM_CSR_2 = ID_ereturn & MEM_CSR_write &
-                         (MEM_CSR_number == `CSR_ERA & |MEM_CSR_write_mask[`CSR_ERA_PC] |
-                          MEM_CSR_number == `CSR_PRMD & |MEM_CSR_write_mask[`CSR_PRMD_PPLV] |
-                          MEM_CSR_number == `CSR_PRMD & |MEM_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_WB_CSR_2  = ID_ereturn & WB_CSR_write &
-                         (WB_CSR_number == `CSR_ERA & |WB_CSR_write_mask[`CSR_ERA_PC] |
-                          WB_CSR_number == `CSR_PRMD & |WB_CSR_write_mask[`CSR_PRMD_PPLV] |
-                          WB_CSR_number == `CSR_PRMD & |WB_CSR_write_mask[`CSR_PRMD_PIE]);
-    assign ID_EXE_CSR_3 = EXE_ereturn;
-    assign ID_MEM_CSR_3 = MEM_ereturn;
-    assign ID_WB_CSR_3 = WB_ereturn;
+    assign ID_EXE_CSR = EXE_CSR_write &
+                        (EXE_CSR_number == `CSR_CRMD & |EXE_CSR_write_mask[`CSR_CRMD_IE] |
+                        EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
+                        EXE_CSR_number == `CSR_ECFG & |EXE_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
+                        EXE_CSR_number == `CSR_ESTAT & |EXE_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
+                        EXE_CSR_number == `CSR_TCFG & |EXE_CSR_write_mask[`CSR_TCFG_EN] |
+                        EXE_CSR_number == `CSR_TICLR & |EXE_CSR_write_mask[`CSR_TICLR_CLR]);
+    assign ID_MEM_CSR = MEM_CSR_write &
+                        (MEM_CSR_number == `CSR_CRMD & |MEM_CSR_write_mask[`CSR_CRMD_IE] |
+                        MEM_CSR_number == `CSR_ECFG & |MEM_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
+                        MEM_CSR_number == `CSR_ECFG & |MEM_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
+                        MEM_CSR_number == `CSR_ESTAT & |MEM_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
+                        MEM_CSR_number == `CSR_TCFG & |MEM_CSR_write_mask[`CSR_TCFG_EN] |
+                        MEM_CSR_number == `CSR_TICLR & |MEM_CSR_write_mask[`CSR_TICLR_CLR]);
+    assign ID_WB_CSR  = WB_CSR_write &
+                        (WB_CSR_number == `CSR_CRMD & |WB_CSR_write_mask[`CSR_CRMD_IE] |
+                        WB_CSR_number == `CSR_ECFG & |WB_CSR_write_mask[`CSR_ECFG_LIE_9_0] |
+                        WB_CSR_number == `CSR_ECFG & |WB_CSR_write_mask[`CSR_ECFG_LIE_12_11] |
+                        WB_CSR_number == `CSR_ESTAT & |WB_CSR_write_mask[`CSR_ESTAT_IS_1_0] |
+                        WB_CSR_number == `CSR_TCFG & |WB_CSR_write_mask[`CSR_TCFG_EN] |
+                        WB_CSR_number == `CSR_TICLR & |WB_CSR_write_mask[`CSR_TICLR_CLR]);
 
     assign ID_bj_stall = ID_jump & (EXE_valid & ID_EXE_GPR1_A &
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
@@ -490,11 +469,11 @@ module mycpu_top (
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
                          MEM_valid & (ID_MEM_GPR1_A | ID_MEM_GPR2_A) & MEM_GPR_new[`GPR_NEW_WB]);
 
-    assign ID_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T | ID_EXE_GPR2_A & ID_EXE_GPR2_T |
-                                   ID_EXE_CSR_1 | ID_EXE_CSR_2 | ID_EXE_CSR_3) |
-                      MEM_valid & (ID_MEM_GPR1_A & ID_MEM_GPR1_T | ID_MEM_GPR2_A & ID_MEM_GPR2_T |
-                                   ID_MEM_CSR_1 | ID_MEM_CSR_2 | ID_MEM_CSR_3) |
-                      WB_valid & (ID_WB_CSR_1 | ID_WB_CSR_2 | ID_WB_CSR_3);
+    assign ID_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T |
+                                   ID_EXE_GPR2_A & ID_EXE_GPR2_T | ID_EXE_CSR ) |
+                      MEM_valid & (ID_MEM_GPR1_A & ID_MEM_GPR1_T |
+                                   ID_MEM_GPR2_A & ID_MEM_GPR2_T | ID_MEM_CSR) |
+                      WB_valid & ID_WB_CSR;
 
     assign ID_done = ~ID_stall | |ID_exception;
 
@@ -569,8 +548,11 @@ module mycpu_top (
         .MEM_valid        (MEM_valid),
         .WB_valid         (WB_valid),
         .exception        (EXE_exception),
+        .ereturn          (EXE_ereturn),
         .MEM_exception    (MEM_exception),
+        .MEM_ereturn      (MEM_ereturn),
         .WB_exception     (WB_exception),
+        .WB_ereturn       (WB_ereturn),
         .data_sram_req    (data_sram_req),
         .data_sram_wr     (data_sram_wr),
         .data_sram_size   (data_sram_size),

@@ -83,8 +83,7 @@ module ALU (
 
     // SRL, SRA
     right_shifter #(
-        .WIDTH      (32),
-        .SHAMT_WIDTH(5)
+        .WIDTH(32)
     ) right_shifter_32 (
         .operand   (operand1),
         .shamt     (operand2[4:0]),

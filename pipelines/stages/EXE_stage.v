@@ -11,8 +11,11 @@ module EXE_stage (
     input  wire                        MEM_valid,
     input  wire                        WB_valid,
     input  wire [`EXCEPTION_WIDTH-1:0] exception,
+    input  wire                        ereturn,
     input  wire [`EXCEPTION_WIDTH-1:0] MEM_exception,
+    input  wire                        MEM_ereturn,
     input  wire [`EXCEPTION_WIDTH-1:0] WB_exception,
+    input  wire                        WB_ereturn,
     // SRAM-like Bus
     output wire                        data_sram_req,
     output wire                        data_sram_wr,
@@ -57,15 +60,16 @@ module EXE_stage (
 
     wire [3:0] MEM_byte_enable;
     decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
+        .WIDTH(2)
     ) decoder_2_4 (
         .in (ALU_result[1:0]),
         .out(MEM_byte_enable)
     );
 
-    assign data_sram_req = valid & MEM_ready & ~|exception & ~(MEM_valid & |MEM_exception) &
-                           ~(WB_valid & |WB_exception) & (|MEM_read | |MEM_write);
+    assign data_sram_req = valid &(|MEM_read | |MEM_write) & MEM_ready &
+                           ~|exception & ~ereturn &
+                           ~(MEM_valid & (|MEM_exception | MEM_ereturn)) &
+                           ~(WB_valid & (|WB_exception | WB_ereturn));
     assign data_sram_wr = |MEM_write;
 
     assign data_sram_size = {2{MEM_read[`MEM_READ_BYTE] | MEM_read[`MEM_READ_BYTEU] |

@@ -48,57 +48,49 @@ module ID (
     wire [31:0] instr_4_0_d;
 
     decoder #(
-        .IN_WIDTH (6),
-        .OUT_WIDTH(64)
+        .WIDTH(6)
     ) decoder_6_64 (
         .in (instr_31_26),
         .out(instr_31_26_d)
     );
     decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
+        .WIDTH(2)
     ) decoder_2_4_0 (
         .in (instr_25_24),
         .out(instr_25_24_d)
     );
     decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
+        .WIDTH(2)
     ) decoder_2_4_1 (
         .in (instr_23_22),
         .out(instr_23_22_d)
     );
     decoder #(
-        .IN_WIDTH (2),
-        .OUT_WIDTH(4)
+        .WIDTH(2)
     ) decoder_2_4_2 (
         .in (instr_21_20),
         .out(instr_21_20_d)
     );
     decoder #(
-        .IN_WIDTH (5),
-        .OUT_WIDTH(32)
+        .WIDTH(5)
     ) decoder_5_32_0 (
         .in (instr_19_15),
         .out(instr_19_15_d)
     );
     decoder #(
-        .IN_WIDTH (5),
-        .OUT_WIDTH(32)
+        .WIDTH(5)
     ) decoder_5_32_1 (
         .in (instr_14_10),
         .out(instr_14_10_d)
     );
     decoder #(
-        .IN_WIDTH (5),
-        .OUT_WIDTH(32)
+        .WIDTH(5)
     ) decoder_5_32_2 (
         .in (instr_9_5),
         .out(instr_9_5_d)
     );
     decoder #(
-        .IN_WIDTH (5),
-        .OUT_WIDTH(32)
+        .WIDTH(5)
     ) decoder_5_32_3 (
         .in (instr_4_0),
         .out(instr_4_0_d)
