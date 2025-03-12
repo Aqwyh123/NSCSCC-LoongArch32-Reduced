@@ -90,14 +90,14 @@ module AXI_Bridge (
     assign arcache = 4'b0000;
     assign arprot = 3'b000;
 
-    assign awid = 4'b0001;
+    assign awid = `DATA_AWID;
     assign awlen = 8'h00;
     assign awburst = 2'b01;
     assign awlock = 2'b00;
     assign awcache = 4'b0000;
     assign awprot = 3'b000;
 
-    assign wid = 4'b0001;
+    assign wid = `DATA_WID;
     assign wlast = 1'b1;
 
     assign read_addr_ok = read_request_state == ReadRequestIdle &

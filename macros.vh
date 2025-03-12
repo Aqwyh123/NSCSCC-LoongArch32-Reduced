@@ -216,6 +216,14 @@
 
 `define INST_ARID 4'h0
 `define DATA_ARID 4'h1
+`define DATA_AWID 4'h1
+`define DATA_WID 4'h1
+
+`define TLB_ENTRIES 16
+`define VALEN 32
+`define PALEN 32
+`define VPPN_WIDTH `VALEN-13
+`define PPN_WIDTH `PALEN-12
 
 `define RDCNTID_W_31_26 6'b000000
 `define RDCNTID_W_25_24 2'b00
