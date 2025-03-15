@@ -11,11 +11,8 @@ module EXE_stage (
     input  wire                        MEM_valid,
     input  wire                        WB_valid,
     input  wire [`EXCEPTION_WIDTH-1:0] exception,
-    input  wire                        ereturn,
     input  wire [`EXCEPTION_WIDTH-1:0] MEM_exception,
-    input  wire                        MEM_ereturn,
     input  wire [`EXCEPTION_WIDTH-1:0] WB_exception,
-    input  wire                        WB_ereturn,
     // SRAM-like Bus
     output wire                        data_sram_req,
     output wire                        data_sram_wr,
@@ -31,10 +28,13 @@ module EXE_stage (
     input  wire [                31:0] rkd_data,
     input  wire                        ALU_src1_is_PC,
     input  wire                        ALU_src2_is_imm,
-    input  wire [   `ALU_OP_WIDTH-1:0] ALU_operation,
+    input  wire [   `ALU_OP_WIDTH-1:0] ALU_op,
     input  wire                        div_unsigned,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
+    input  wire [                31:0] CSR_read_data,
+    input  wire                        CSR_write_mask,
+    output wire [                31:0] CSR_write_data,
     output wire [                31:0] ALU_result,
     output wire                        ALE
 );
@@ -50,7 +50,7 @@ module EXE_stage (
         .reset       (reset),
         .valid       (valid),
         .ready       (MEM_ready),
-        .operation   (ALU_operation),
+        .operation   (ALU_op),
         .div_unsigned(div_unsigned),
         .operand1    (ALU_operand1),
         .operand2    (ALU_operand2),
@@ -66,10 +66,9 @@ module EXE_stage (
         .out(MEM_byte_enable)
     );
 
-    assign data_sram_req = valid &(|MEM_read | |MEM_write) & MEM_ready &
-                           ~|exception & ~ereturn &
-                           ~(MEM_valid & (|MEM_exception | MEM_ereturn)) &
-                           ~(WB_valid & (|WB_exception | WB_ereturn));
+    assign data_sram_req = valid & (|MEM_read | |MEM_write) & MEM_ready & ~|exception &
+                           ~(MEM_valid & |MEM_exception) & ~(WB_valid & |WB_exception);
+
     assign data_sram_wr = |MEM_write;
 
     assign data_sram_size = {2{MEM_read[`MEM_READ_BYTE] | MEM_read[`MEM_READ_BYTEU] |
@@ -90,6 +89,10 @@ module EXE_stage (
                                {32{MEM_write[`MEM_WRITE_WORD]}} & rkd_data;
 
     assign MEM_done = data_sram_req & data_sram_addr_ok;
+
+    assign CSR_write_data = CSR_write_mask ?
+                            rj_data & rkd_data | ~rj_data & CSR_read_data :
+                            rkd_data;
 
     assign ALE = (MEM_read[`MEM_READ_HALF] | MEM_read[`MEM_READ_HALFU] |
                   MEM_write[`MEM_WRITE_HALF]) & ALU_result[0] |

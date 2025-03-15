@@ -14,22 +14,26 @@ module ID_stage (
     input  wire [                    31:0] rj_data,
     output wire [                     4:0] GPR_read_num2,
     input  wire [                    31:0] rkd_data,
-    output wire [                    31:0] CNT_result,
+    output wire [   `CSR_NUMBER_WIDTH-1:0] CSR_number,
+    input  wire [                    31:0] CSR_read_data,
+    output wire [                    31:0] CSR_result,
     output wire                            ALU_src1_is_PC,
     output wire                            ALU_src2_is_imm,
-    output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
+    output wire [       `ALU_OP_WIDTH-1:0] ALU_op,
     output wire                            mul_div_unsigned,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
     output wire [                     4:0] GPR_write_num,
     output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
-    output wire [   `CSR_NUMBER_WIDTH-1:0] CSR_number,
     output wire                            CSR_write,
-    output wire [                    31:0] CSR_write_mask,
+    output wire                            CSR_write_mask,
+    output wire [       `TLB_OP_WIDTH-1:0] TLB_op,
+    output wire [                     4:0] invtlb_op,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
+    output wire                            CSR_use,
     output wire                            bj_taken,
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
@@ -42,11 +46,9 @@ module ID_stage (
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
     wire GPR_read_src2_is_rd;
-    wire CNT_is_low;
     wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
     wire [63:0] CNT_data;
-    wire CSR_number_is_TID;
-    wire CSR_mask;
+    wire [`CSR_SRC_WIDTH-1:0] CSR_read_src;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
     wire [4:0] rj = inst[`RJ_MSB:`RJ_LSB];
@@ -57,8 +59,8 @@ module ID_stage (
     wire [19:0] i20 = inst[`I20_MSB:`I20_LSB];
 
     wire [15:0] o16 = inst[`O16_MSB:`O16_LSB];
-    wire [20:0] o21 = {inst[`O21_HIGH_MSB:`O21_HIGH_LSB], inst[`O21_LOW_MSB:`O21_LOW_LSB]};
-    wire [25:0] o26 = {inst[`O26_HIGH_MSB:`O26_HIGH_LSB], inst[`O26_LOW_MSB:`O26_LOW_LSB]};
+    wire [20:0] o21 = {inst[`O21_HI_MSB:`O21_HI_LSB], inst[`O21_LO_MSB:`O21_LO_LSB]};
+    wire [25:0] o26 = {inst[`O26_HI_MSB:`O26_HI_LSB], inst[`O26_LO_MSB:`O26_LO_LSB]};
     wire [31:0] offs;
 
     wire rj_eq_rd;
@@ -73,41 +75,36 @@ module ID_stage (
         .imm_src            (imm_src),
         .offs_src           (offs_src),
         .GPR_read_src2_is_rd(GPR_read_src2_is_rd),
-        .CNT_is_low         (CNT_is_low),
         .ALU_src1_is_PC     (ALU_src1_is_PC),
         .ALU_src2_is_imm    (ALU_src2_is_imm),
-        .ALU_operation      (ALU_operation),
+        .ALU_op             (ALU_op),
         .mul_div_unsigned   (mul_div_unsigned),
         .MEM_read           (MEM_read),
         .MEM_write          (MEM_write),
         .GPR_write          (GPR_write),
         .GPR_write_dst      (GPR_write_dst),
         .GPR_write_src      (GPR_write_src),
-        .CSR_number_is_TID  (CSR_number_is_TID),
+        .CSR_read_src       (CSR_read_src),
         .CSR_write          (CSR_write),
-        .CSR_mask           (CSR_mask),
+        .CSR_write_mask     (CSR_write_mask),
+        .TLB_op             (TLB_op),
         .ereturn            (ereturn),
         .syscall            (SYS),
         .__break            (BRK),
         .not_existed        (INE),
         .GPR1_use           (GPR1_use),
         .GPR2_use           (GPR2_use),
-        .GPR_new            (GPR_new)
+        .GPR_new            (GPR_new),
+        .CSR_use            (CSR_use)
     );
 
     assign GPR_read_num1 = rj;
     assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
 
-    StableCounter stable_counter (
-        .clk  (clk),
-        .reset(reset),
-        .data (CNT_data)
-    );
-
-    assign CNT_result = CNT_is_low ? CNT_data[31:0] : CNT_data[63:32];
-
     assign rj_eq_rd = rj_data == rkd_data;
-    assign rj_lt_rd = $signed(rj_data) < $signed(rkd_data);
+    assign rj_lt_rd = rj_data[31] & ~rkd_data[31] |
+                      rj_data[31] & rj_ltu_rd |
+                     ~rkd_data[31] & rj_ltu_rd;
     assign rj_ltu_rd = rj_data < rkd_data;
 
     assign offs = {32{offs_src[`OFFS_SRC_16]}} & {{14{o16[15]}}, o16, 2'b0} |
@@ -131,7 +128,17 @@ module ID_stage (
     assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
                            GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
 
-    assign CSR_number = CSR_number_is_TID ? `CSR_TID : i14;
+    StableCounter stable_counter (
+        .clk  (clk),
+        .reset(reset),
+        .data (CNT_data)
+    );
 
-    assign CSR_write_mask = CSR_mask ? rj_data : 32'hffffffff;
+    assign CSR_number = CSR_read_src[`CSR_SRC_TID] ? `CSR_TID : i14;
+
+    assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data |
+                        {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CNT_data[31:0] |
+                        {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CNT_data[63:32];
+
+    assign invtlb_op = rj;
 endmodule

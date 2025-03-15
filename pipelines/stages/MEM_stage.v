@@ -9,7 +9,7 @@ module MEM_stage (
     input  wire                        data_sram_data_ok,
     input  wire [                31:0] data_sram_rdata,
     // data signals
-    input  wire [                 1:0] ALU_operation_mul,
+    input  wire [                 1:0] ALU_op_mul,
     input  wire [                63:0] mul_result,
     input  wire [                31:0] EXE_ALU_result,
     input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
@@ -19,8 +19,8 @@ module MEM_stage (
 );
     assign done = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
 
-    assign ALU_result = ALU_operation_mul[0] ? mul_result[31:0] :
-                        ALU_operation_mul[1] ? mul_result[63:32] :
+    assign ALU_result = ALU_op_mul[0] ? mul_result[31:0] :
+                        ALU_op_mul[1] ? mul_result[63:32] :
                         EXE_ALU_result;
 
     wire [3:0] MEM_byte_enable;

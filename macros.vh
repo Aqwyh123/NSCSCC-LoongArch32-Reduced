@@ -21,14 +21,14 @@
 
 `define O16_MSB 25
 `define O16_LSB 10
-`define O21_HIGH_MSB 4
-`define O21_HIGH_LSB 0
-`define O21_LOW_MSB 25
-`define O21_LOW_LSB 10
-`define O26_HIGH_MSB 9
-`define O26_HIGH_LSB 0
-`define O26_LOW_MSB 25
-`define O26_LOW_LSB 10
+`define O21_HI_MSB 4
+`define O21_HI_LSB 0
+`define O21_LO_MSB 25
+`define O21_LO_LSB 10
+`define O26_HI_MSB 9
+`define O26_HI_LSB 0
+`define O26_LO_MSB 25
+`define O26_LO_LSB 10
 
 // ui5 = ui12[4:0]
 `define IMM_SRC_WIDTH 5
@@ -79,14 +79,12 @@
 `define MEM_WRITE_HALF 1
 `define MEM_WRITE_WORD 2
 
-`define GPR_WRITE_SRC_WIDTH 7
+`define GPR_WRITE_SRC_WIDTH 5
 `define GPR_WRITE_SRC_LINK 0
 `define GPR_WRITE_SRC_LUI 1
-`define GPR_WRITE_SRC_CNT 2
-`define GPR_WRITE_SRC_ALU 3
-`define GPR_WRITE_SRC_MUL 4
-`define GPR_WRITE_SRC_MEM 5
-`define GPR_WRITE_SRC_CSR 6
+`define GPR_WRITE_SRC_ALU 2
+`define GPR_WRITE_SRC_MEM 3
+`define GPR_WRITE_SRC_CSR 4
 
 `define GPR_WRITE_DST_WIDTH 2
 `define GPR_WRITE_DST_R1 0
@@ -96,6 +94,39 @@
 `define GPR_NEW_EXE 0
 `define GPR_NEW_MEM 1
 `define GPR_NEW_WB 2
+
+`define CSR_SRC_WIDTH 4
+`define CSR_SRC_CSR 0
+`define CSR_SRC_TID 1
+`define CSR_SRC_CNTLO 2
+`define CSR_SRC_CNTHI 3
+
+`define TLB_OP_WIDTH 5
+`define TLB_OP_SEARCH 0
+`define TLB_OP_READ 1
+`define TLB_OP_WRITE 2
+`define TLB_OP_FILL 3
+`define TLB_OP_INVALID 4
+
+`define TLB_ENTRIES 16
+`define VALEN 32
+`define PALEN 32
+`define VPPN_WIDTH `VALEN-13
+`define PPN_WIDTH `PALEN-12
+
+`define TLBEHI_WIDTH 1+10+1+6+`VALEN-13
+`define TLBEHI_E 0
+`define TLBEHI_ASID 10:1
+`define TLBEHI_G 11
+`define TLBEHI_PS 17:12
+`define TLBEHI_VPPN `VPPN_WIDTH+17:18
+
+`define TLBELO_WIDTH 1+1+2+2+`PALEN-12
+`define TLBELO_V 0
+`define TLBELO_D 1
+`define TLBELO_MAT 3:2
+`define TLBELO_PLV 5:4
+`define TLBELO_PPN `PPN_WIDTH+5:6
 
 `define EXCEPTION_WIDTH 16
 `define EXCEPTION_INT 0
@@ -113,7 +144,7 @@
 `define EXCEPTION_IPE 12
 `define EXCEPTION_FPD 13
 `define EXCEPTION_FPE 14
-`define EXCEPTION_TRBL 15
+`define EXCEPTION_TLBR 15
 
 `define CSR_NUMBER_WIDTH 14
 
@@ -135,41 +166,47 @@
 
 `define CSR_ECFG 14'h0004
 `define CSR_ECFG_LIE_9_0 9:0
-`define CSR_ECFG_0_LOW 10
+`define CSR_ECFG_0_LO 10
 `define CSR_ECFG_LIE_12_11 12:11
-`define CSR_ECFG_0_HIGH 31:13
-`define CSR_ECFG_0_LOW_WIDTH 1
-`define CSR_ECFG_0_HIGH_WIDTH 19
+`define CSR_ECFG_0_HI 31:13
+`define CSR_ECFG_0_LO_WIDTH 1
+`define CSR_ECFG_0_HI_WIDTH 19
 
 `define CSR_ESTAT 14'h0005
 `define CSR_ESTAT_IS_1_0 1:0
 `define CSR_ESTAT_IS_9_2 9:2
-`define CSR_ESTAT_0_LOW 10
+`define CSR_ESTAT_0_LO 10
 `define CSR_ESTAT_IS_11 11
 `define CSR_ESTAT_IS_12 12
-`define CSR_ESTAT_0_MID 15:13
+`define CSR_ESTAT_0_MD 15:13
 `define CSR_ESTAT_ECODE 21:16
 `define CSR_ESTAT_ESUBCODE 30:22
-`define CSR_ESTAT_0_HIGH 31
-`define CSR_ESTAT_0_LOW_WIDTH 1
-`define CSR_ESTAT_0_MID_WIDTH 3
-`define CSR_ESTAT_0_HIGH_WIDTH 1
+`define CSR_ESTAT_0_HI 31
+`define CSR_ESTAT_0_LO_WIDTH 1
+`define CSR_ESTAT_0_MD_WIDTH 3
+`define CSR_ESTAT_0_HI_WIDTH 1
 
 `define ECODE_WIDTH 6
 `define ECODE_INT 6'h00
+`define ECODE_PIL 6'h01
+`define ECODE_PIS 6'h02
+`define ECODE_PIF 6'h03
+`define ECODE_PME 6'h04
+`define ECODE_PPI 6'h07
 `define ECODE_ADEF 6'h08
+// `define ECODE_ADEM 6'h08
 `define ECODE_ALE 6'h09
 `define ECODE_SYS 6'h0b
 `define ECODE_BRK 6'h0c
 `define ECODE_INE 6'h0d
+// `define ECODE_IPE 6'h0e
+// `define ECODE_FPD 6'h0f
+// `define ECODE_FPE 6'h12
+`define ECODE_TLBR 6'h3f
 
 `define ESUBCODE_WIDTH 9
-`define ESUBCODE_INT 9'h000
-`define ESUBCODE_ADEF 9'h000
-`define ESUBCODE_ALE 9'h000
-`define ESUBCODE_SYS 9'h000
-`define ESUBCODE_BRK 9'h000
-`define ESUBCODE_INE 9'h000
+`define ESUBCODE_OTHER 9'd0
+`define ESUBCODE_ADEM 9'd1
 
 `define CSR_ERA 14'h0006
 `define CSR_ERA_PC 31:0
@@ -181,6 +218,58 @@
 `define CSR_EENTRY_0 5:0
 `define CSR_EENTRY_VA 31:6
 `define CSR_EENTRY_0_WIDTH 6
+
+`define CSR_TLBIDX 14'h0010
+`define CSR_TLBIDX_INDEX $clog2(TLB_ENTRIES)-1:0
+`define CSR_TLBIDX_0_LO 23:$clog2(TLB_ENTRIES)
+`define CSR_TLBIDX_PS 29:24
+`define CSR_TLBIDX_0_HI 30
+`define CSR_TLBIDX_NE 31
+`define CSR_TLBIDX_PS_WIDTH 6
+// `define CSR_TLBIDX_0_LO_WIDTH (15-$clog2(TLB_ENTRIES)+1)
+`define CSR_TLBIDX_0_HI_WIDTH 1
+
+`define CSR_TLBEHI 14'h0011
+`define CSR_TLBEHI_0 12:0
+`define CSR_TLBEHI_VPPN 31:13
+`define CSR_TLBEHI_VPPN_WIDTH 19
+`define CSR_TLBEHI_0_WIDTH 13
+
+`define CSR_TLBELO0 14'h0012
+`define CSR_TLBELO0_V 0
+`define CSR_TLBELO0_D 1
+`define CSR_TLBELO0_PLV 3:2
+`define CSR_TLBELO0_MAT 5:4
+`define CSR_TLBELO0_G 6
+`define CSR_TLBELO0_0_LO 7
+`define CSR_TLBELO0_PPN `PALEN-5:8
+`define CSR_TLBELO0_0_HI 31:`PALEN-4
+`define CSR_TLBELO0_0_LO_WIDTH 1
+// `define CSR_TLBELO0_PPN_WIDTH `PALEN-5-8+1
+// `define CSR_TLBELO0_0_HI_WIDTH 31-(`PALEN-4)+1
+
+`define CSR_TLBELO1 14'h0013
+`define CSR_TLBELO1_V 0
+`define CSR_TLBELO1_D 1
+`define CSR_TLBELO1_PLV 3:2
+`define CSR_TLBELO1_MAT 5:4
+`define CSR_TLBELO1_G 6
+`define CSR_TLBELO1_0_LO 7
+`define CSR_TLBELO1_PPN `PALEN-5:8
+`define CSR_TLBELO1_0_HI 31:`PALEN-4
+`define CSR_TLBELO1_0_LO_WIDTH 1
+// `define CSR_TLBELO1_PPN_WIDTH `PALEN-5-8+1
+// `define CSR_TLBELO1_0_HI_WIDTH 31-(`PALEN-4)+1
+
+`define CSR_ASID 14'h0018
+`define CSR_ASID_ASID 9:0
+`define CSR_ASID_0_LO 15:10
+`define CSR_ASID_ASIDBITS 23:16
+`define CSR_ASID_0_HI 31:24
+`define CSR_ASID_ASID_WIDTH 10
+`define CSR_ASID_ASIDBITS_WIDTH 8
+`define CSR_ASID_0_LO_WIDTH 6
+`define CSR_ASID_0_HI_WIDTH 8
 
 `define CSR_CPUID 14'h0020
 `define CSR_CPUID_COREID 8:0
@@ -214,16 +303,15 @@
 `define CSR_TICLR_0 31:1
 `define CSR_TICLR_0_WIDTH 31
 
+`define CSR_TLBRENTRY 14'h0088
+`define CSR_TLBRENTRY_0 5:0
+`define CSR_TLBRENTRY_PA 31:6
+`define CSR_TLBRENTRY_0_WIDTH 6
+
 `define INST_ARID 4'h0
 `define DATA_ARID 4'h1
 `define DATA_AWID 4'h1
 `define DATA_WID 4'h1
-
-`define TLB_ENTRIES 16
-`define VALEN 32
-`define PALEN 32
-`define VPPN_WIDTH `VALEN-13
-`define PPN_WIDTH `PALEN-12
 
 `define RDCNTID_W_31_26 6'b000000
 `define RDCNTID_W_25_24 2'b00
@@ -423,6 +511,42 @@
 `define CSRXCHG_25_24 2'b00
 `define CSRXCHG_9_5
 
+`define TLBSRCH_31_26 6'b000001
+`define TLBSRCH_25_24 2'b10
+`define TLBSRCH_23_22 2'b01
+`define TLBSRCH_21_20 2'b00
+`define TLBSRCH_19_15 5'b10000
+`define TLBSRCH_14_10 5'b01010
+`define TLBSRCH_9_5 5'b00000
+`define TLBSRCH_4_0 5'b00000
+
+`define TLBRD_31_26 6'b000001
+`define TLBRD_25_24 2'b10
+`define TLBRD_23_22 2'b01
+`define TLBRD_21_20 2'b00
+`define TLBRD_19_15 5'b10000
+`define TLBRD_14_10 5'b01011
+`define TLBRD_9_5 5'b00000
+`define TLBRD_4_0 5'b00000
+
+`define TLBWR_31_26 6'b000001
+`define TLBWR_25_24 2'b10
+`define TLBWR_23_22 2'b01
+`define TLBWR_21_20 2'b00
+`define TLBWR_19_15 5'b10000
+`define TLBWR_14_10 5'b01100
+`define TLBWR_9_5 5'b00000
+`define TLBWR_4_0 5'b00000
+
+`define TLBFILL_31_26 6'b000001
+`define TLBFILL_25_24 2'b10
+`define TLBFILL_23_22 2'b01
+`define TLBFILL_21_20 2'b00
+`define TLBFILL_19_15 5'b10000
+`define TLBFILL_14_10 5'b01101
+`define TLBFILL_9_5 5'b00000
+`define TLBFILL_4_0 5'b00000
+
 `define ERTN_31_26 6'b000001
 `define ERTN_25_24 2'b10
 `define ERTN_23_22 2'b01
@@ -431,6 +555,12 @@
 `define ERTN_14_10 5'b01110
 `define ERTN_9_5 5'b00000
 `define ERTN_4_0 5'b00000
+
+`define INVTLB_31_26 6'b000001
+`define INVTLB_25_24 2'b10
+`define INVTLB_23_22 2'b01
+`define INVTLB_21_20 2'b00
+`define INVTLB_19_15 5'b10011
 
 `define LU12I_W_31_26 6'b000101
 `define LU12I_W_25 1'b0

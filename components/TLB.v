@@ -4,6 +4,11 @@ module TLB #(
     parameter TLB_ENTRIES = 16
 ) (
     input  wire                           clk,
+    // search port
+    input  wire [        `VPPN_WIDTH-1:0] s_vppn,
+    input  wire [                    9:0] s_asid,
+    output wire                           s_found,
+    output wire [$clog2(TLB_ENTRIES)-1:0] s_index,
     // read port
     input  wire [$clog2(TLB_ENTRIES)-1:0] r_index,
     output wire [        `VPPN_WIDTH-1:0] r_vppn,
@@ -39,7 +44,7 @@ module TLB #(
     input  wire [                    1:0] w_mat1,
     input  wire                           w_d1,
     input  wire                           w_v1,
-    // invtlb opcode
+    // invalid port
     input  wire                           invtlb_en,
     input  wire [                    4:0] invtlb_op,
     input  wire [        `VPPN_WIDTH-1:0] invtlb_vppn,
@@ -69,6 +74,7 @@ module TLB #(
     output wire                           s1_d,
     output wire                           s1_v
 );
+    wire [     `VALEN-1:0] tlb_va                                [TLB_ENTRIES-1:0];
     reg  [`VPPN_WIDTH-1:0] tlb_vppn                              [TLB_ENTRIES-1:0];
     reg  [            5:0] tlb_ps                                [TLB_ENTRIES-1:0];
     reg                    tlb_g                                 [TLB_ENTRIES-1:0];
@@ -85,7 +91,9 @@ module TLB #(
     reg                    tlb_d1                                [TLB_ENTRIES-1:0];
     reg                    tlb_v1                                [TLB_ENTRIES-1:0];
 
-    wire [     `VALEN-1:0] tlb_va                                [TLB_ENTRIES-1:0];
+    wire [     `VALEN-1:0] s_va = {s_vppn, 13'h0};
+    wire [       2**5-1:0] s_vppn_match                          [TLB_ENTRIES-1:0];
+    wire [TLB_ENTRIES-1:0] s_match;  // vector for encoding
     wire [     `VALEN-1:0] invtlb_va = {invtlb_vppn, 13'h0};
     wire [       2**5-1:0] invtlb_vppn_match                     [TLB_ENTRIES-1:0];
     wire                   invtlb_match                          [TLB_ENTRIES-1:0];
@@ -141,15 +149,19 @@ module TLB #(
 
             assign tlb_va[i]                    = {tlb_vppn[i], 13'h0};
 
+            assign s_vppn_match[i][2**5-1]     = 1'b1;
             assign invtlb_vppn_match[i][2**5-1] = 1'b1;
             assign s0_vppn_match[i][2**5-1]     = 1'b1;
             assign s1_vppn_match[i][2**5-1]     = 1'b1;
             for (j = 0; j < 2 ** 5 - 1; j = j + 1) begin : gen_vppn_match
+                assign s_vppn_match[i][j]     = tlb_va[i][`VALEN-1:j+1] == s_va[`VALEN-1:j+1];
                 assign invtlb_vppn_match[i][j] = tlb_va[i][`VALEN-1:j+1] == invtlb_va[`VALEN-1:j+1];
                 assign s0_vppn_match[i][j] = tlb_va[i][`VALEN-1:j+1] == s0_va[`VALEN-1:j+1];
                 assign s1_vppn_match[i][j] = tlb_va[i][`VALEN-1:j+1] == s1_va[`VALEN-1:j+1];
             end
 
+            assign s_match[i] = tlb_e[i] & (tlb_g[i] | tlb_asid[i] == s_asid) &
+                                s_vppn_match[i][tlb_ps[i]];
             assign invtlb_match[i] = invtlb_op == 5'h00 |
                                      invtlb_op == 5'h01 |
                                      invtlb_op == 5'h02 & tlb_g[i] |
@@ -165,6 +177,14 @@ module TLB #(
                                  s1_vppn_match[i][tlb_ps[i]];
         end
     endgenerate
+
+    assign s_found = |s_match;
+    encoder #(
+        .WIDTH(TLB_ENTRIES)
+    ) encoder_s (
+        .in (s_match),
+        .out(s_index)
+    );
 
     assign s0_found = |s0_match;
     encoder #(
