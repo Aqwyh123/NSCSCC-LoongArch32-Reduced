@@ -14,7 +14,7 @@ module MEM_reg (
     output wire                            MEM_to_WB_valid,
     // data signals
     input  wire [                    31:0] EXE_PC,
-    input  wire [                     1:0] EXE_ALU_op_mul,
+    input  wire [                     1:0] EXE_ALU_operation_mul,
     input  wire [                    31:0] EXE_ALU_result,
     input  wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
@@ -34,7 +34,7 @@ module MEM_reg (
     input  wire                            EXE_BRK,
     input  wire                            EXE_INE,
     output reg  [                    31:0] MEM_PC,
-    output reg  [                     1:0] MEM_ALU_op_mul,
+    output reg  [                     1:0] MEM_ALU_operation_mul,
     output reg  [                    31:0] MEM_EXE_ALU_result,
     output reg  [     `MEM_READ_WIDTH-1:0] MEM_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write,
@@ -67,26 +67,26 @@ module MEM_reg (
                 MEM_valid <= EXE_to_MEM_valid;
             end
             if (EXE_to_MEM_valid & MEM_ready) begin
-                MEM_PC               <= EXE_PC;
-                MEM_ALU_op_mul       <= EXE_ALU_op_mul;
-                MEM_EXE_ALU_result   <= EXE_ALU_result;
-                MEM_MEM_read         <= EXE_MEM_read;
-                MEM_MEM_write        <= EXE_MEM_write;
-                MEM_GPR_write        <= EXE_GPR_write;
-                MEM_GPR_write_num    <= EXE_GPR_write_num;
-                MEM_GPR_write_src    <= EXE_GPR_write_src;
-                MEM_CSR_result       <= EXE_CSR_result;
-                MEM_CSR_write        <= EXE_CSR_write;
-                MEM_CSR_write_number <= EXE_CSR_write_number;
-                MEM_CSR_write_data   <= EXE_CSR_write_data;
-                MEM_ereturn          <= EXE_ereturn;
-                MEM_GPR_new          <= EXE_GPR_new;
-                MEM_INT              <= EXE_INT;
-                MEM_ADEF             <= EXE_ADEF;
-                MEM_ALE              <= EXE_ALE;
-                MEM_SYS              <= EXE_SYS;
-                MEM_BRK              <= EXE_BRK;
-                MEM_INE              <= EXE_INE;
+                MEM_PC                <= EXE_PC;
+                MEM_ALU_operation_mul <= EXE_ALU_operation_mul;
+                MEM_EXE_ALU_result    <= EXE_ALU_result;
+                MEM_MEM_read          <= EXE_MEM_read;
+                MEM_MEM_write         <= EXE_MEM_write;
+                MEM_GPR_write         <= EXE_GPR_write;
+                MEM_GPR_write_num     <= EXE_GPR_write_num;
+                MEM_GPR_write_src     <= EXE_GPR_write_src;
+                MEM_CSR_result        <= EXE_CSR_result;
+                MEM_CSR_write         <= EXE_CSR_write;
+                MEM_CSR_write_number  <= EXE_CSR_write_number;
+                MEM_CSR_write_data    <= EXE_CSR_write_data;
+                MEM_ereturn           <= EXE_ereturn;
+                MEM_GPR_new           <= EXE_GPR_new;
+                MEM_INT               <= EXE_INT;
+                MEM_ADEF              <= EXE_ADEF;
+                MEM_ALE               <= EXE_ALE;
+                MEM_SYS               <= EXE_SYS;
+                MEM_BRK               <= EXE_BRK;
+                MEM_INE               <= EXE_INE;
             end
         end
     end

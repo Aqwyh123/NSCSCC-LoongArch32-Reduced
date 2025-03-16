@@ -10,14 +10,14 @@ module ID (
     output wire                            GPR_read_src2_is_rd,  // default : rk
     output wire                            ALU_src1_is_PC,       // default : rj
     output wire                            ALU_src2_is_imm,      // default : rk/rd
-    output wire [       `ALU_OP_WIDTH-1:0] ALU_op,
+    output wire [       `ALU_OP_WIDTH-1:0] ALU_operation,
     output wire                            mul_div_unsigned,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
     output wire                            GPR_write,
     output wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst,        // default : rd
     output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
-    output wire [       `TLB_OP_WIDTH-1:0] TLB_op,
+    output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
     output wire [      `CSR_SRC_WIDTH-1:0] CSR_read_src,
     output wire                            CSR_write,
     output wire                            CSR_write_mask,
@@ -275,23 +275,23 @@ module ID (
                              lu12i_w | pcaddu12i | ld_b | ld_h | ld_w | ld_bu | ld_hu |
                              st_b | st_h | st_w | jirl | bl;
 
-    assign ALU_op[`ALU_OP_ADD] = add_w | addi_w | jirl | bl | pcaddu12i |
+    assign ALU_operation[`ALU_OP_ADD] = add_w | addi_w | jirl | bl | pcaddu12i |
                                         ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
-    assign ALU_op[`ALU_OP_SUB] = sub_w;
-    assign ALU_op[`ALU_OP_SLT] = slt | slti;
-    assign ALU_op[`ALU_OP_SLTU] = sltu | sltui;
-    assign ALU_op[`ALU_OP_AND] = __and | andi;
-    assign ALU_op[`ALU_OP_NOR] = __nor;
-    assign ALU_op[`ALU_OP_OR] = __or | ori;
-    assign ALU_op[`ALU_OP_XOR] = __xor | xori;
-    assign ALU_op[`ALU_OP_SLL] = slli_w | sll_w;
-    assign ALU_op[`ALU_OP_SRL] = srli_w | srl_w;
-    assign ALU_op[`ALU_OP_SRA] = srai_w | sra_w;
-    assign ALU_op[`ALU_OP_LUI] = lu12i_w;
-    assign ALU_op[`ALU_OP_DIV] = div_w | div_wu;
-    assign ALU_op[`ALU_OP_MOD] = mod_w | mod_wu;
-    assign ALU_op[`ALU_OP_MUL] = mul_w;
-    assign ALU_op[`ALU_OP_MULH] = mulh_w | mulhu_wu;
+    assign ALU_operation[`ALU_OP_SUB] = sub_w;
+    assign ALU_operation[`ALU_OP_SLT] = slt | slti;
+    assign ALU_operation[`ALU_OP_SLTU] = sltu | sltui;
+    assign ALU_operation[`ALU_OP_AND] = __and | andi;
+    assign ALU_operation[`ALU_OP_NOR] = __nor;
+    assign ALU_operation[`ALU_OP_OR] = __or | ori;
+    assign ALU_operation[`ALU_OP_XOR] = __xor | xori;
+    assign ALU_operation[`ALU_OP_SLL] = slli_w | sll_w;
+    assign ALU_operation[`ALU_OP_SRL] = srli_w | srl_w;
+    assign ALU_operation[`ALU_OP_SRA] = srai_w | sra_w;
+    assign ALU_operation[`ALU_OP_LUI] = lu12i_w;
+    assign ALU_operation[`ALU_OP_DIV] = div_w | div_wu;
+    assign ALU_operation[`ALU_OP_MOD] = mod_w | mod_wu;
+    assign ALU_operation[`ALU_OP_MUL] = mul_w;
+    assign ALU_operation[`ALU_OP_MULH] = mulh_w | mulhu_wu;
 
     assign mul_div_unsigned = mulhu_wu | div_wu | mod_wu;
 
@@ -335,11 +335,11 @@ module ID (
 
     assign CSR_write_mask = csrxchg;
 
-    assign TLB_op[`TLB_OP_SEARCH] = tlbsrch;
-    assign TLB_op[`TLB_OP_READ] = tlbrd;
-    assign TLB_op[`TLB_OP_WRITE] = tlbwr;
-    assign TLB_op[`TLB_OP_FILL] = tlbfill;
-    assign TLB_op[`TLB_OP_INVALID] = invtlb;
+    assign TLB_operation[`TLB_OP_SEARCH] = tlbsrch;
+    assign TLB_operation[`TLB_OP_READ] = tlbrd;
+    assign TLB_operation[`TLB_OP_WRITE] = tlbwr;
+    assign TLB_operation[`TLB_OP_FILL] = tlbfill;
+    assign TLB_operation[`TLB_OP_INVALID] = invtlb;
 
     assign ereturn = ertn;
 

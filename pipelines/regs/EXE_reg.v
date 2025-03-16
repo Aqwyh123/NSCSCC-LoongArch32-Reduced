@@ -20,7 +20,7 @@ module EXE_reg (
     input  wire [                    31:0] ID_rkd_data,
     input  wire                            ID_ALU_src1_is_PC,
     input  wire                            ID_ALU_src2_is_imm,
-    input  wire [       `ALU_OP_WIDTH-1:0] ID_ALU_op,
+    input  wire [       `ALU_OP_WIDTH-1:0] ID_ALU_operation,
     input  wire                            ID_mul_div_unsigned,
     input  wire [     `MEM_READ_WIDTH-1:0] ID_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] ID_MEM_write,
@@ -45,7 +45,7 @@ module EXE_reg (
     output reg  [                    31:0] EXE_rkd_data,
     output reg                             EXE_ALU_src1_is_PC,
     output reg                             EXE_ALU_src2_is_imm,
-    output reg  [       `ALU_OP_WIDTH-1:0] EXE_ALU_op,
+    output reg  [       `ALU_OP_WIDTH-1:0] EXE_ALU_operation,
     output reg                             EXE_mul_div_unsigned,
     output reg  [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
@@ -84,7 +84,7 @@ module EXE_reg (
                 EXE_rkd_data         <= ID_rkd_data;
                 EXE_ALU_src1_is_PC   <= ID_ALU_src1_is_PC;
                 EXE_ALU_src2_is_imm  <= ID_ALU_src2_is_imm;
-                EXE_ALU_op           <= ID_ALU_op;
+                EXE_ALU_operation    <= ID_ALU_operation;
                 EXE_mul_div_unsigned <= ID_mul_div_unsigned;
                 EXE_MEM_read         <= ID_MEM_read;
                 EXE_MEM_write        <= ID_MEM_write;

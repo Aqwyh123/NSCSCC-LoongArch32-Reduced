@@ -44,7 +44,7 @@ module MMU #(
         .r_d1       (TLB_r_lo1[`TLBELO_D]),
         .r_v1       (TLB_r_lo1[`TLBELO_V]),
         .we         (TLB_wfi_op[`TLB_OP_WRITE] | TLB_wfi_op[`TLB_OP_FILL]),
-        .w_index    (TLB_op[`TLB_OP_FILL] ? TLB_w_random : TLB_rw_index),
+        .w_index    (TLB_operation[`TLB_OP_FILL] ? TLB_w_random : TLB_rw_index),
         .w_vppn     (TLB_sw_hi[`TLBEHI_VPPN]),
         .w_ps       (TLB_sw_hi[`TLBEHI_PS]),
         .w_g        (TLB_sw_hi[`TLBEHI_G]),
