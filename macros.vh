@@ -109,19 +109,25 @@
 `define TLB_OP_INVALID 4
 
 `define TLB_ENTRIES 16
-`define VALEN 32
-`define PALEN 32
-`define VPPN_WIDTH `VALEN-13
-`define PPN_WIDTH `PALEN-12
 
-`define TLBEHI_WIDTH 1+10+1+6+`VALEN-13
+`define VALEN 32
+`define VPPN_WIDTH (`VALEN-13)
+`define VPPN_4KB_LSB 13
+`define VPPN_4MB_LSB 22
+
+`define PALEN 32
+`define PPN_WIDTH (`PALEN-12)
+`define PPN_4KB_LSB 12
+`define PPN_4MB_LSB 21
+
+`define TLBEHI_WIDTH (1+10+1+6+`VPPN_WIDTH)
 `define TLBEHI_E 0
 `define TLBEHI_ASID 10:1
 `define TLBEHI_G 11
 `define TLBEHI_PS 17:12
 `define TLBEHI_VPPN `VPPN_WIDTH+17:18
 
-`define TLBELO_WIDTH 1+1+2+2+`PALEN-12
+`define TLBELO_WIDTH (1+1+2+2+`PPN_WIDTH)
 `define TLBELO_V 0
 `define TLBELO_D 1
 `define TLBELO_MAT 3:2
@@ -226,12 +232,12 @@
 `define CSR_TLBIDX_0_HI 30
 `define CSR_TLBIDX_NE 31
 `define CSR_TLBIDX_PS_WIDTH 6
-// `define CSR_TLBIDX_0_LO_WIDTH (15-$clog2(TLB_ENTRIES)+1)
+// `define CSR_TLBIDX_0_LO_WIDTH (23-$clog2(TLB_ENTRIES)+1)
 `define CSR_TLBIDX_0_HI_WIDTH 1
 
 `define CSR_TLBEHI 14'h0011
 `define CSR_TLBEHI_0 12:0
-`define CSR_TLBEHI_VPPN 31:13
+`define CSR_TLBEHI_VPPN 31:`VPPN_4KB_LSB
 `define CSR_TLBEHI_VPPN_WIDTH 19
 `define CSR_TLBEHI_0_WIDTH 13
 
@@ -307,6 +313,24 @@
 `define CSR_TLBRENTRY_0 5:0
 `define CSR_TLBRENTRY_PA 31:6
 `define CSR_TLBRENTRY_0_WIDTH 6
+
+`define CSR_DMW0 14'h0180
+`define CSR_DMW1 14'h0181
+`define CSR_DMW_PLV0 0
+`define CSR_DMW_0_LO 2:1
+`define CSR_DMW_PLV3 3
+`define CSR_DMW_MAT 5:4
+`define CSR_DMW_0_MD 24:6
+`define CSR_DMW_PSEG 27:25
+`define CSR_DMW_0_HI 28
+`define CSR_DMW_VSEG 31:29
+`define CSR_DMW_PLV 3:0
+`define CSR_DMW_PLV_WIDTH 4
+`define CSR_DMW_PSEG_WIDTH 3
+`define CSR_DMW_VSEG_WIDTH 3
+`define CSR_DMW_0_LO_WIDTH 2
+`define CSR_DMW_0_MD_WIDTH 19
+`define CSR_DMW_0_HI_WIDTH 1
 
 `define INST_ARID 4'h0
 `define DATA_ARID 4'h1

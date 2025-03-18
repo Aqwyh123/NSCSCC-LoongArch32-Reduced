@@ -1,38 +1,40 @@
 `include "../../macros.vh"
 
 module IF_stage (
-    input  wire        clk,
-    input  wire        reset,
+    input  wire                        clk,
+    input  wire                        reset,
     // control signals
-    input  wire        exception,
-    input  wire        ereturn,
-    input  wire [31:0] eentry,
-    input  wire [31:0] eraddr,
-    input  wire        bj_taken,
-    input  wire        bj_stall,
-    input  wire [31:0] bj_target,
+    input  wire [`EXCEPTION_WIDTH-1:0] exception,
+    input  wire                        ereturn,
+    input  wire                        refetch,
+    input  wire [                31:0] eentry,
+    input  wire [                31:0] rentry,
+    input  wire [                31:0] eraddr,
+    input  wire [                31:0] rtarget,
+    input  wire                        bj_taken,
+    input  wire                        bj_stall,
+    input  wire [                31:0] bj_target,
     // handshaking signals
-    input  wire        ID_ready,
-    output wire        IF_to_ID_valid,
+    input  wire                        ID_ready,
+    output wire                        IF_to_ID_valid,
     // SRAM-like Bus
-    output wire        inst_sram_req,
-    output wire        inst_sram_wr,
-    output wire [ 1:0] inst_sram_size,
-    output wire [31:0] inst_sram_addr,
-    output wire [ 3:0] inst_sram_wstrb,
-    output wire [31:0] inst_sram_wdata,
-    input  wire        inst_sram_addr_ok,
-    input  wire        inst_sram_data_ok,
-    input  wire [31:0] inst_sram_rdata,
+    output wire                        inst_sram_req,
+    output wire                        inst_sram_wr,
+    output wire [                 1:0] inst_sram_size,
+    output wire [                31:0] inst_sram_vaddr,
+    output wire [                 3:0] inst_sram_wstrb,
+    output wire [                31:0] inst_sram_wdata,
+    input  wire                        inst_sram_addr_ok,
+    input  wire                        inst_sram_data_ok,
+    input  wire [                31:0] inst_sram_rdata,
     // data signals
-    output wire [31:0] PC,
-    output wire [31:0] link,
-    output wire [31:0] inst,
-    output wire        ADEF
+    output wire [                31:0] PC,
+    output wire [                31:0] link,
+    output wire [                31:0] inst,
+    output wire                        ADEF
 );
     wire        flush;
     wire        bj_flush;
-    wire        bj_enable;
 
     wire        pre_IF_done;
     wire        pre_IF_to_IF_valid;
@@ -51,9 +53,8 @@ module IF_stage (
     reg         inst_sram_data_ok_temp;
     reg  [31:0] inst_sram_rdata_temp;
 
-    assign flush              = exception | ereturn | bj_flush;
-    assign bj_enable          = bj_taken & ~bj_stall;
-    assign bj_flush           = bj_enable & bj_target != IF_PC;
+    assign flush              = |exception | ereturn | refetch | bj_flush;
+    assign bj_flush           = bj_taken & ~bj_stall;
 
     assign pre_IF_done        = inst_sram_req & inst_sram_addr_ok | pre_IF_ADEF;
     assign pre_IF_to_IF_valid = pre_IF_done;
@@ -68,9 +69,11 @@ module IF_stage (
         end
     end
 
-    assign pre_IF_PC = exception ? eentry :
+    assign pre_IF_PC = exception[`EXCEPTION_FPE:`EXCEPTION_INT] ? eentry :
+                       exception[`EXCEPTION_TLBR] ? rentry :
                        ereturn ? eraddr :
-                       bj_enable ? bj_target :
+                       refetch ? rtarget :
+                       bj_flush ? bj_target :
                        pre_IF_PC_is_IF_PC ? IF_PC :
                        IF_seq_PC;
     assign pre_IF_ADEF = |pre_IF_PC[1:0];
@@ -89,11 +92,15 @@ module IF_stage (
             end else if (flush) begin
                 IF_valid <= 1'b0;
             end
-            if (exception) begin
+            if (exception[`EXCEPTION_FPE:`EXCEPTION_INT]) begin
                 IF_PC <= eentry;
+            end else if (exception[`EXCEPTION_TLBR]) begin
+                IF_PC <= rentry;
             end else if (ereturn) begin
                 IF_PC <= eraddr;
-            end else if (bj_enable) begin
+            end else if (refetch) begin
+                IF_PC <= rtarget;
+            end else if (bj_flush) begin
                 IF_PC <= bj_target;
             end else if (pre_IF_to_IF_valid & IF_ready) begin
                 IF_PC <= pre_IF_PC_is_IF_PC ? IF_PC : IF_seq_PC;
@@ -131,7 +138,7 @@ module IF_stage (
     assign inst_sram_req   = ~bj_stall & ~pre_IF_ADEF & IF_ready;
     assign inst_sram_wr    = 1'b0;
     assign inst_sram_size  = 2'b10;
-    assign inst_sram_addr  = pre_IF_PC;
+    assign inst_sram_vaddr = pre_IF_PC;
     assign inst_sram_wstrb = 4'b0000;
     assign inst_sram_wdata = 32'h0;
 

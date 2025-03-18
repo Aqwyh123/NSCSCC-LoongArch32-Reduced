@@ -31,7 +31,10 @@ module EXE_reg (
     input  wire                            ID_CSR_write,
     input  wire [   `CSR_NUMBER_WIDTH-1:0] ID_CSR_write_number,
     input  wire                            ID_CSR_write_mask,
+    input  wire [       `TLB_OP_WIDTH-1:0] ID_TLB_operation,
+    input  wire [                     4:0] ID_invtlb_op,
     input  wire                            ID_ereturn,
+    input  wire                            ID_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new,
     input  wire                            ID_INT,
     input  wire                            ID_ADEF,
@@ -56,7 +59,10 @@ module EXE_reg (
     output reg                             EXE_CSR_write,
     output reg  [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_write_number,
     output reg                             EXE_CSR_write_mask,
+    output reg  [       `TLB_OP_WIDTH-1:0] EXE_TLB_operation,
+    output reg  [                     4:0] EXE_invtlb_op,
     output reg                             EXE_ereturn,
+    output reg                             EXE_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     output reg                             EXE_INT,
     output reg                             EXE_ADEF,
@@ -95,7 +101,10 @@ module EXE_reg (
                 EXE_CSR_write        <= ID_CSR_write;
                 EXE_CSR_write_number <= ID_CSR_write_number;
                 EXE_CSR_write_mask   <= ID_CSR_write_mask;
+                EXE_TLB_operation    <= ID_TLB_operation;
+                EXE_invtlb_op        <= ID_invtlb_op;
                 EXE_ereturn          <= ID_ereturn;
+                EXE_refetch          <= ID_refetch;
                 EXE_GPR_new          <= ID_GPR_new;
                 EXE_INT              <= ID_INT;
                 EXE_ADEF             <= ID_ADEF;

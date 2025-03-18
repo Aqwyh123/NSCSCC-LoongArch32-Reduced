@@ -1,8 +1,6 @@
 `include "../../macros.vh"
 
 module ID_stage (
-    input  wire                            clk,
-    input  wire                            reset,
     // control signals
     input  wire                            valid,
     // data signals
@@ -16,6 +14,7 @@ module ID_stage (
     input  wire [                    31:0] rkd_data,
     output wire [   `CSR_NUMBER_WIDTH-1:0] CSR_number,
     input  wire [                    31:0] CSR_read_data,
+    input  wire [                    63:0] CSR_counter,
     output wire [                    31:0] CSR_result,
     output wire                            ALU_src1_is_PC,
     output wire                            ALU_src2_is_imm,
@@ -38,6 +37,7 @@ module ID_stage (
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
     output wire                            ereturn,
+    output wire                            refetch,
     output wire                            SYS,
     output wire                            BRK,
     output wire                            INE
@@ -47,7 +47,6 @@ module ID_stage (
     wire [`IMM_SRC_WIDTH-1:0] imm_src;
     wire GPR_read_src2_is_rd;
     wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
-    wire [63:0] CNT_data;
     wire [`CSR_SRC_WIDTH-1:0] CSR_read_src;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
@@ -128,17 +127,15 @@ module ID_stage (
     assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
                            GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
 
-    StableCounter stable_counter (
-        .clk  (clk),
-        .reset(reset),
-        .data (CNT_data)
-    );
-
     assign CSR_number = CSR_read_src[`CSR_SRC_TID] ? `CSR_TID : i14;
 
     assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data |
-                        {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CNT_data[31:0] |
-                        {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CNT_data[63:32];
+                        {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CSR_counter[31:0] |
+                        {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CSR_counter[63:32];
 
-    assign invtlb_op = rj;
+    assign invtlb_op = rd;
+
+    assign refetch = |TLB_operation[`TLB_OP_INVALID:`TLB_OP_READ] |
+                      CSR_write & (CSR_number == `CSR_CRMD | CSR_number == `CSR_ASID |
+                                   CSR_number == `CSR_DMW0 | CSR_number == `CSR_DMW1);
 endmodule

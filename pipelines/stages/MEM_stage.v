@@ -2,25 +2,25 @@
 
 module MEM_stage (
     // handshaking signals
-    output wire                        done,
+    output wire                            done,
     // control signals
-    input  wire [`EXCEPTION_WIDTH-1:0] exception,
+    input  wire [    `EXCEPTION_WIDTH-1:0] exception,
     // SRAM-like Bus
-    input  wire                        data_sram_data_ok,
-    input  wire [                31:0] data_sram_rdata,
+    input  wire                            data_sram_data_ok,
+    input  wire [                    31:0] data_sram_rdata,
     // data signals
-    input  wire [                 1:0] ALU_operation_mul,
-    input  wire [                63:0] mul_result,
-    input  wire [                31:0] EXE_ALU_result,
-    input  wire [ `MEM_READ_WIDTH-1:0] MEM_read,
-    input  wire [`MEM_WRITE_WIDTH-1:0] MEM_write,
-    output wire [                31:0] ALU_result,
-    output wire [                31:0] MEM_result
+    input  wire [`ALU_OP_MULH:`ALU_OP_MUL] ALU_operation,
+    input  wire [                    63:0] mul_result,
+    input  wire [                    31:0] EXE_ALU_result,
+    input  wire [     `MEM_READ_WIDTH-1:0] MEM_read,
+    input  wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire [                    31:0] ALU_result,
+    output wire [                    31:0] MEM_result
 );
     assign done = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
 
-    assign ALU_result = ALU_operation_mul[0] ? mul_result[31:0] :
-                        ALU_operation_mul[1] ? mul_result[63:32] :
+    assign ALU_result = ALU_operation[`ALU_OP_MUL] ? mul_result[31:0] :
+                        ALU_operation[`ALU_OP_MULH] ? mul_result[63:32] :
                         EXE_ALU_result;
 
     wire [3:0] MEM_byte_enable;

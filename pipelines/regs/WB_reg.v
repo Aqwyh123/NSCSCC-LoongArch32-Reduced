@@ -12,6 +12,8 @@ module WB_reg (
     output wire                            WB_ready,
     // data signals
     input  wire [                    31:0] MEM_PC,
+    input  wire [                    31:0] MEM_rj_data,
+    input  wire [                    31:0] MEM_rkd_data,
     input  wire [                    31:0] MEM_ALU_result,
     input  wire [                    31:0] MEM_MEM_result,
     input  wire [                    31:0] MEM_CSR_result,
@@ -21,6 +23,9 @@ module WB_reg (
     input  wire                            MEM_CSR_write,
     input  wire [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_write_number,
     input  wire [                    31:0] MEM_CSR_write_data,
+    input  wire [       `TLB_OP_WIDTH-1:0] MEM_TLB_operation,
+    input  wire [                     4:0] MEM_invtlb_op,
+    input  wire                            MEM_refetch,
     input  wire                            MEM_ereturn,
     input  wire                            MEM_INT,
     input  wire                            MEM_ADEF,
@@ -29,6 +34,8 @@ module WB_reg (
     input  wire                            MEM_BRK,
     input  wire                            MEM_INE,
     output reg  [                    31:0] WB_PC,
+    output reg  [                    31:0] WB_rj_data,
+    output reg  [                    31:0] WB_rkd_data,
     output reg  [                    31:0] WB_ALU_result,
     output reg  [                    31:0] WB_MEM_result,
     output reg  [                    31:0] WB_CSR_result,
@@ -38,7 +45,10 @@ module WB_reg (
     output reg                             WB_CSR_write,
     output reg  [   `CSR_NUMBER_WIDTH-1:0] WB_CSR_write_number,
     output reg  [                    31:0] WB_CSR_write_data,
+    output reg  [       `TLB_OP_WIDTH-1:0] WB_TLB_operation,
+    output reg  [                     4:0] WB_invtlb_op,
     output reg                             WB_ereturn,
+    output reg                             WB_refetch,
     output reg                             WB_INT,
     output reg                             WB_ADEF,
     output reg                             WB_ALE,
@@ -59,6 +69,8 @@ module WB_reg (
             end
             if (MEM_to_WB_valid & WB_ready) begin
                 WB_PC               <= MEM_PC;
+                WB_rj_data          <= MEM_rj_data;
+                WB_rkd_data         <= MEM_rkd_data;
                 WB_ALU_result       <= MEM_ALU_result;
                 WB_MEM_result       <= MEM_MEM_result;
                 WB_CSR_result       <= MEM_CSR_result;
@@ -68,7 +80,10 @@ module WB_reg (
                 WB_CSR_write_number <= MEM_CSR_write_number;
                 WB_CSR_write        <= MEM_CSR_write;
                 WB_CSR_write_data   <= MEM_CSR_write_data;
+                WB_TLB_operation    <= MEM_TLB_operation;
+                WB_invtlb_op        <= MEM_invtlb_op;
                 WB_ereturn          <= MEM_ereturn;
+                WB_refetch          <= MEM_refetch;
                 WB_INT              <= MEM_INT;
                 WB_ADEF             <= MEM_ADEF;
                 WB_ALE              <= MEM_ALE;

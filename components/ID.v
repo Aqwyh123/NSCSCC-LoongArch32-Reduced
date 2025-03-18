@@ -217,7 +217,7 @@ module ID (
                 instr_9_5_d[`ERTN_9_5] & instr_4_0_d[`ERTN_4_0];
     wire invtlb = instr_31_26_d[`INVTLB_31_26] & instr_25_24_d[`INVTLB_25_24] &
                   instr_23_22_d[`INVTLB_23_22] & instr_21_20_d[`INVTLB_21_20] &
-                  instr_19_15_d[`INVTLB_19_15];
+                  instr_19_15_d[`INVTLB_19_15] & |instr_4_0_d[6:0];
     wire lu12i_w = instr_31_26_d[`LU12I_W_31_26] & ~instruction[25];
     wire pcaddu12i = instr_31_26_d[`PCADDU12I_31_26] & ~instruction[25];
     wire ld_b = instr_31_26_d[`LD_B_31_26] & instr_25_24_d[`LD_B_25_24] &

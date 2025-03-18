@@ -17,7 +17,7 @@ module EXE_stage (
     output wire                        data_sram_req,
     output wire                        data_sram_wr,
     output wire [                 1:0] data_sram_size,
-    output wire [                31:0] data_sram_addr,
+    output wire [                31:0] data_sram_vaddr,
     output wire [                 3:0] data_sram_wstrb,
     output wire [                31:0] data_sram_wdata,
     input  wire                        data_sram_addr_ok,
@@ -77,7 +77,7 @@ module EXE_stage (
                             MEM_write[`MEM_WRITE_HALF]}} & 2'b01 |
                             {2{MEM_read[`MEM_READ_WORD] | MEM_write[`MEM_WRITE_WORD]}} & 2'b10;
 
-    assign data_sram_addr = ALU_result;
+    assign data_sram_vaddr = ALU_result;
 
     assign data_sram_wstrb = {4{MEM_write[`MEM_WRITE_BYTE]}} & MEM_byte_enable |
                              {4{MEM_write[`MEM_WRITE_HALF]}} &
