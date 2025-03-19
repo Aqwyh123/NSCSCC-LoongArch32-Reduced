@@ -335,11 +335,11 @@ module ID (
 
     assign CSR_write_mask = csrxchg;
 
-    assign TLB_operation[`TLB_OP_SEARCH] = tlbsrch;
+    assign TLB_operation[`TLB_OP_SRCH] = tlbsrch;
     assign TLB_operation[`TLB_OP_READ] = tlbrd;
     assign TLB_operation[`TLB_OP_WRITE] = tlbwr;
     assign TLB_operation[`TLB_OP_FILL] = tlbfill;
-    assign TLB_operation[`TLB_OP_INVALID] = invtlb;
+    assign TLB_operation[`TLB_OP_INV] = invtlb;
 
     assign ereturn = ertn;
 

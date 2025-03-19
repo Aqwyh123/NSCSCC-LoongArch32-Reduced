@@ -8,16 +8,16 @@ module EXE_stage (
     input  wire                        MEM_ready,
     output wire                        done,
     // control signals
-    input  wire                        MEM_valid,
-    input  wire                        WB_valid,
+    output wire                        data_load,
+    output wire                        data_store,
+    output wire [                31:0] data_vaddr,
+    input  wire [                31:0] data_paddr,
     input  wire [`EXCEPTION_WIDTH-1:0] exception,
-    input  wire [`EXCEPTION_WIDTH-1:0] MEM_exception,
-    input  wire [`EXCEPTION_WIDTH-1:0] WB_exception,
     // SRAM-like Bus
     output wire                        data_sram_req,
     output wire                        data_sram_wr,
     output wire [                 1:0] data_sram_size,
-    output wire [                31:0] data_sram_vaddr,
+    output wire [                31:0] data_sram_addr,
     output wire [                 3:0] data_sram_wstrb,
     output wire [                31:0] data_sram_wdata,
     input  wire                        data_sram_addr_ok,
@@ -66,8 +66,11 @@ module EXE_stage (
         .out(MEM_byte_enable)
     );
 
-    assign data_sram_req = valid & (|MEM_read | |MEM_write) & MEM_ready & ~|exception &
-                           ~(MEM_valid & |MEM_exception) & ~(WB_valid & |WB_exception);
+    assign data_load = |MEM_read;
+    assign data_store = |MEM_write;
+    assign data_vaddr = ALU_result;
+
+    assign data_sram_req = valid & (data_load | data_store) & ~|exception & MEM_ready;
 
     assign data_sram_wr = |MEM_write;
 
@@ -77,7 +80,7 @@ module EXE_stage (
                             MEM_write[`MEM_WRITE_HALF]}} & 2'b01 |
                             {2{MEM_read[`MEM_READ_WORD] | MEM_write[`MEM_WRITE_WORD]}} & 2'b10;
 
-    assign data_sram_vaddr = ALU_result;
+    assign data_sram_addr = data_paddr;
 
     assign data_sram_wstrb = {4{MEM_write[`MEM_WRITE_BYTE]}} & MEM_byte_enable |
                              {4{MEM_write[`MEM_WRITE_HALF]}} &

@@ -17,11 +17,18 @@ module IF_stage (
     // handshaking signals
     input  wire                        ID_ready,
     output wire                        IF_to_ID_valid,
+    // MMU signals
+    output wire                        inst_fetch,
+    output wire [                31:0] inst_vaddr,
+    input  wire [                31:0] inst_paddr,
+    input  wire                        pre_IF_PIF,
+    input  wire                        pre_IF_PPI,
+    input  wire                        pre_IF_TLBR,
     // SRAM-like Bus
     output wire                        inst_sram_req,
     output wire                        inst_sram_wr,
     output wire [                 1:0] inst_sram_size,
-    output wire [                31:0] inst_sram_vaddr,
+    output wire [                31:0] inst_sram_addr,
     output wire [                 3:0] inst_sram_wstrb,
     output wire [                31:0] inst_sram_wdata,
     input  wire                        inst_sram_addr_ok,
@@ -31,32 +38,40 @@ module IF_stage (
     output wire [                31:0] PC,
     output wire [                31:0] link,
     output wire [                31:0] inst,
-    output wire                        ADEF
+    output wire                        PIF,
+    output wire                        PPI,
+    output wire                        ADEF,
+    output wire                        TLBR
 );
-    wire        flush;
-    wire        bj_flush;
+    wire                        flush;
+    wire                        bj_flush;
 
-    wire        pre_IF_done;
-    wire        pre_IF_to_IF_valid;
-    reg         pre_IF_PC_is_IF_PC;
-    wire [31:0] pre_IF_PC;
-    wire        pre_IF_ADEF;
+    wire                        pre_IF_done;
+    wire                        pre_IF_to_IF_valid;
+    reg                         pre_IF_PC_is_IF_PC;
+    wire [                31:0] pre_IF_PC;
+    wire                        pre_IF_ADEF;
+    wire [`EXCEPTION_WIDTH-1:0] pre_IF_exception;
 
-    reg         IF_valid;
-    wire        IF_ready;
-    wire        IF_done;
-    reg  [31:0] IF_PC;
-    wire        IF_ADEF;
-    wire [31:0] IF_seq_PC;
+    reg                         IF_valid;
+    wire                        IF_ready;
+    wire                        IF_done;
+    reg  [                31:0] IF_PC;
+    reg                         IF_PIF;
+    reg                         IF_PPI;
+    reg                         IF_ADEF;
+    reg                         IF_TLBR;
+    wire [                31:0] IF_seq_PC;
+    wire [`EXCEPTION_WIDTH-1:0] IF_exception;
 
-    reg         inst_sram_data_ok_valid;
-    reg         inst_sram_data_ok_temp;
-    reg  [31:0] inst_sram_rdata_temp;
+    reg                         inst_sram_data_ok_valid;
+    reg                         inst_sram_data_ok_temp;
+    reg  [                31:0] inst_sram_rdata_temp;
 
     assign flush              = |exception | ereturn | refetch | bj_flush;
     assign bj_flush           = bj_taken & ~bj_stall;
 
-    assign pre_IF_done        = inst_sram_req & inst_sram_addr_ok | pre_IF_ADEF;
+    assign pre_IF_done        = inst_sram_req & inst_sram_addr_ok | |pre_IF_exception;
     assign pre_IF_to_IF_valid = pre_IF_done;
 
     always @(posedge clk) begin
@@ -69,17 +84,21 @@ module IF_stage (
         end
     end
 
-    assign pre_IF_PC = exception[`EXCEPTION_FPE:`EXCEPTION_INT] ? eentry :
-                       exception[`EXCEPTION_TLBR] ? rentry :
+    assign pre_IF_PC = |exception[`EXCEPTION_IPE:`EXCEPTION_INT] ? eentry :
+                       |exception[`EXCEPTION_TLBR] ? rentry :
                        ereturn ? eraddr :
-                       refetch ? rtarget :
+                       refetch ? rtarget:
                        bj_flush ? bj_target :
                        pre_IF_PC_is_IF_PC ? IF_PC :
                        IF_seq_PC;
     assign pre_IF_ADEF = |pre_IF_PC[1:0];
+    assign pre_IF_exception = {
+        1'b0, pre_IF_TLBR, 6'b0, pre_IF_ADEF, 1'b0, pre_IF_PPI, 1'b0, pre_IF_PIF, 3'b0
+    };
 
     assign IF_ready = ~IF_valid | (IF_done & ID_ready);
-    assign IF_done = inst_sram_data_ok_valid & inst_sram_data_ok | inst_sram_data_ok_temp | IF_ADEF;
+    assign IF_done = inst_sram_data_ok_valid & inst_sram_data_ok |
+                     inst_sram_data_ok_temp | |IF_exception;
     assign IF_to_ID_valid = IF_valid & IF_done & ~bj_flush;
 
     always @(posedge clk) begin
@@ -92,24 +111,48 @@ module IF_stage (
             end else if (flush) begin
                 IF_valid <= 1'b0;
             end
-            if (exception[`EXCEPTION_FPE:`EXCEPTION_INT]) begin
-                IF_PC <= eentry;
-            end else if (exception[`EXCEPTION_TLBR]) begin
-                IF_PC <= rentry;
+            if (|exception[`EXCEPTION_IPE:`EXCEPTION_INT]) begin
+                IF_PC   <= eentry;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
+            end else if (|exception[`EXCEPTION_TLBR]) begin
+                IF_PC   <= rentry;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
             end else if (ereturn) begin
-                IF_PC <= eraddr;
+                IF_PC   <= eraddr;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
             end else if (refetch) begin
-                IF_PC <= rtarget;
+                IF_PC   <= rtarget;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
             end else if (bj_flush) begin
-                IF_PC <= bj_target;
+                IF_PC   <= bj_target;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
             end else if (pre_IF_to_IF_valid & IF_ready) begin
-                IF_PC <= pre_IF_PC_is_IF_PC ? IF_PC : IF_seq_PC;
+                IF_PC   <= pre_IF_PC_is_IF_PC ? IF_PC : IF_seq_PC;
+                IF_PIF  <= pre_IF_PIF;
+                IF_PPI  <= pre_IF_PPI;
+                IF_ADEF <= pre_IF_ADEF;
+                IF_TLBR <= pre_IF_TLBR;
             end
         end
     end
 
-    assign IF_ADEF   = |IF_PC[1:0];
-    assign IF_seq_PC = IF_PC + 3'h4;
+    assign IF_seq_PC    = IF_PC + 3'h4;
+    assign IF_exception = {1'b0, IF_TLBR, 6'b0, IF_ADEF, 1'b0, IF_PPI, 1'b0, IF_PIF, 3'b0};
 
     always @(posedge clk) begin
         if (reset) begin
@@ -135,15 +178,21 @@ module IF_stage (
         end
     end
 
-    assign inst_sram_req   = ~bj_stall & ~pre_IF_ADEF & IF_ready;
+    assign inst_fetch      = ~bj_stall;
+    assign inst_vaddr      = pre_IF_PC;
+
+    assign inst_sram_req   = inst_fetch & ~|pre_IF_exception & IF_ready;
     assign inst_sram_wr    = 1'b0;
     assign inst_sram_size  = 2'b10;
-    assign inst_sram_vaddr = pre_IF_PC;
+    assign inst_sram_addr  = inst_paddr;
     assign inst_sram_wstrb = 4'b0000;
     assign inst_sram_wdata = 32'h0;
 
     assign PC              = IF_PC;
     assign link            = IF_seq_PC;
     assign inst            = inst_sram_data_ok_temp ? inst_sram_rdata_temp : inst_sram_rdata;
+    assign PIF             = IF_PIF;
+    assign PPI             = IF_PPI;
     assign ADEF            = IF_ADEF;
+    assign TLBR            = IF_TLBR;
 endmodule

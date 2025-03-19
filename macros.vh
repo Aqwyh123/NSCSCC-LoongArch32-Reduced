@@ -102,11 +102,11 @@
 `define CSR_SRC_CNTHI 3
 
 `define TLB_OP_WIDTH 5
-`define TLB_OP_SEARCH 0
+`define TLB_OP_SRCH 0
 `define TLB_OP_READ 1
 `define TLB_OP_WRITE 2
 `define TLB_OP_FILL 3
-`define TLB_OP_INVALID 4
+`define TLB_OP_INV 4
 
 `define TLB_ENTRIES 16
 
@@ -140,17 +140,18 @@
 `define EXCEPTION_PIS 2
 `define EXCEPTION_PIF 3
 `define EXCEPTION_PME 4
-`define EXCEPTION_PPI 5
-`define EXCEPTION_ADEF 6
-`define EXCEPTION_ADEM 7
-`define EXCEPTION_ALE 8
-`define EXCEPTION_SYS 9
-`define EXCEPTION_BRK 10
-`define EXCEPTION_INE 11
-`define EXCEPTION_IPE 12
-`define EXCEPTION_FPD 13
-`define EXCEPTION_FPE 14
-`define EXCEPTION_TLBR 15
+`define EXCEPTION_F_PPI 5
+`define EXCEPTION_M_PPI 6
+`define EXCEPTION_ADEF 7
+`define EXCEPTION_ADEM 8
+`define EXCEPTION_ALE 9
+`define EXCEPTION_SYS 10
+`define EXCEPTION_BRK 11
+`define EXCEPTION_INE 12
+`define EXCEPTION_IPE 13
+`define EXCEPTION_F_TLBR 14
+`define EXCEPTION_M_TLBR 15
+`define EXCEPTION_TLBR 15:14
 
 `define CSR_NUMBER_WIDTH 14
 
@@ -206,8 +207,6 @@
 `define ECODE_BRK 6'h0c
 `define ECODE_INE 6'h0d
 // `define ECODE_IPE 6'h0e
-// `define ECODE_FPD 6'h0f
-// `define ECODE_FPE 6'h12
 `define ECODE_TLBR 6'h3f
 
 `define ESUBCODE_WIDTH 9

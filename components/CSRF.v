@@ -3,52 +3,53 @@
 module CSRF #(
     parameter TLB_ENTRIES = 16
 ) (
-    input  wire                           clk,
-    input  wire                           reset,
+    input  wire                             clk,
+    input  wire                             reset,
     // data signals
-    input  wire [  `CSR_NUMBER_WIDTH-1:0] read_number,
-    output wire [                   31:0] read_data,
-    input  wire [  `CSR_NUMBER_WIDTH-1:0] write_number,
-    input  wire                           write_enable,
-    input  wire [                   31:0] write_data,
+    input  wire [    `CSR_NUMBER_WIDTH-1:0] read_number,
+    output wire [                     31:0] read_data,
+    input  wire [    `CSR_NUMBER_WIDTH-1:0] write_number,
+    input  wire                             write_enable,
+    input  wire [                     31:0] write_data,
     // counter signals
-    output wire [                   63:0] counter,
+    output wire [                     63:0] counter,
     // TLB signals
-    input  wire [      `TLB_OP_WIDTH-1:0] TLB_operation,
-    input  wire                           TLB_s_hit,
-    input  wire [$clog2(TLB_ENTRIES)-1:0] TLB_s_index,
-    input  wire [      `TLBEHI_WIDTH-1:0] TLB_r_hi,
-    input  wire [      `TLBELO_WIDTH-1:0] TLB_r_lo0,
-    input  wire [      `TLBELO_WIDTH-1:0] TLB_r_lo1,
-    output wire [$clog2(TLB_ENTRIES)-1:0] TLB_rw_index,
-    output wire [      `TLBEHI_WIDTH-1:0] TLB_sw_hi,
-    output wire [      `TLBELO_WIDTH-1:0] TLB_w_lo0,
-    output wire [      `TLBELO_WIDTH-1:0] TLB_w_lo1,
+    input  wire [`TLB_OP_READ:`TLB_OP_SRCH] TLB_operation,
+    input  wire                             TLB_s_hit,
+    input  wire [  $clog2(TLB_ENTRIES)-1:0] TLB_s_index,
+    input  wire [        `TLBEHI_WIDTH-1:0] TLB_r_hi,
+    input  wire [        `TLBELO_WIDTH-1:0] TLB_r_lo0,
+    input  wire [        `TLBELO_WIDTH-1:0] TLB_r_lo1,
+    output wire [  $clog2(TLB_ENTRIES)-1:0] TLB_rw_index,
+    output wire [        `TLBEHI_WIDTH-1:0] TLB_sw_hi,
+    output wire [        `TLBELO_WIDTH-1:0] TLB_w_lo0,
+    output wire [        `TLBELO_WIDTH-1:0] TLB_w_lo1,
+    output wire [  $clog2(TLB_ENTRIES)-1:0] TLB_f_index,
     // inst / data access signals
-    output wire                           da,
-    output wire                           pg,
-    output wire [                    9:0] asid,
-    output wire [                    1:0] plv,
+    output wire                             da,
+    output wire                             pg,
+    output wire [                      9:0] asid,
+    output wire [                      1:0] plv,
     // inst access signals
-    output wire [                    1:0] plv0,
-    output wire [`CSR_DMW_PSEG_WIDTH-1:0] pseg0,
-    output wire [`CSR_DMW_VSEG_WIDTH-1:0] vseg0,
+    output wire [                      1:0] plv0,
+    output wire [  `CSR_DMW_PSEG_WIDTH-1:0] pseg0,
+    output wire [  `CSR_DMW_VSEG_WIDTH-1:0] vseg0,
     // data access signals
-    output wire [                    1:0] plv1,
-    output wire [`CSR_DMW_PSEG_WIDTH-1:0] pseg1,
-    output wire [`CSR_DMW_VSEG_WIDTH-1:0] vseg1,
+    output wire [                      1:0] plv1,
+    output wire [  `CSR_DMW_PSEG_WIDTH-1:0] pseg1,
+    output wire [  `CSR_DMW_VSEG_WIDTH-1:0] vseg1,
     // interupt signals
-    input  wire [                    7:0] hw_int,
-    input  wire                           ip_int,
-    output wire                           interupt,
+    input  wire [                      7:0] hw_int,
+    input  wire                             ip_int,
+    output wire                             interupt,
     // exception signals
-    input  wire [   `EXCEPTION_WIDTH-1:0] exception,
-    input  wire                           ereturn,
-    input  wire [                   31:0] PC,
-    input  wire [                   31:0] vaddr,
-    output wire [                   31:0] eentry,
-    output wire [                   31:0] eraddr,
-    output wire [                   31:0] rentry
+    input  wire [     `EXCEPTION_WIDTH-1:0] exception,
+    input  wire                             ereturn,
+    input  wire [                     31:0] PC,
+    input  wire [                     31:0] vaddr,
+    output wire [                     31:0] eentry,
+    output wire [                     31:0] eraddr,
+    output wire [                     31:0] rentry
 );
     reg [31:0] CRMD;
     reg [31:0] PRMD;
@@ -77,17 +78,19 @@ module CSRF #(
     wire [`ESUBCODE_WIDTH-1:0] esubcode;
 
     assign ecode    = exception[`EXCEPTION_INT] ? `ECODE_INT :
-                      exception[`EXCEPTION_PIL] ? `ECODE_PIL :
-                      exception[`EXCEPTION_PIS] ? `ECODE_PIS :
-                      exception[`EXCEPTION_PIF] ? `ECODE_PIF :
-                      exception[`EXCEPTION_PME] ? `ECODE_PME :
-                      exception[`EXCEPTION_PPI] ? `ECODE_PPI :
                       exception[`EXCEPTION_ADEF] ? `ECODE_ADEF :
+                      exception[`EXCEPTION_PIF] ? `ECODE_PIF :
+                      exception[`EXCEPTION_F_PPI] ? `ECODE_PPI :
+                      exception[`EXCEPTION_F_TLBR] ? `ECODE_TLBR :
                       exception[`EXCEPTION_SYS] ? `ECODE_SYS  :
                       exception[`EXCEPTION_BRK] ? `ECODE_BRK  :
                       exception[`EXCEPTION_INE] ? `ECODE_INE  :
                       exception[`EXCEPTION_ALE] ? `ECODE_ALE  :
-                      exception[`EXCEPTION_TLBR] ? `ECODE_TLBR : `ECODE_WIDTH'b0;
+                      exception[`EXCEPTION_PIL] ? `ECODE_PIL :
+                      exception[`EXCEPTION_PIS] ? `ECODE_PIS :
+                      exception[`EXCEPTION_PME] ? `ECODE_PME :
+                      exception[`EXCEPTION_M_PPI] ? `ECODE_PPI :
+                      exception[`EXCEPTION_M_TLBR] ? `ECODE_TLBR : `ECODE_WIDTH'b0;
     assign esubcode = {8'b0, exception[`EXCEPTION_ADEM]};
 
     StableCounter stable_counter (
@@ -107,7 +110,7 @@ module CSRF #(
         end else if (|exception) begin
             CRMD[`CSR_CRMD_PLV] <= 2'b0;
             CRMD[`CSR_CRMD_IE]  <= 1'b0;
-            if (exception[`EXCEPTION_TLBR]) begin
+            if (|exception[`EXCEPTION_TLBR]) begin
                 CRMD[`CSR_CRMD_DA] <= 1'b1;
                 CRMD[`CSR_CRMD_PG] <= 1'b0;
             end
@@ -121,6 +124,8 @@ module CSRF #(
         end else if (write_enable & write_number == `CSR_CRMD) begin
             CRMD[`CSR_CRMD_PLV]  <= write_data[`CSR_CRMD_PLV];
             CRMD[`CSR_CRMD_IE]   <= write_data[`CSR_CRMD_IE];
+            CRMD[`CSR_CRMD_DA]   <= write_data[`CSR_CRMD_DA];
+            CRMD[`CSR_CRMD_PG]   <= write_data[`CSR_CRMD_PG];
             CRMD[`CSR_CRMD_DATF] <= write_data[`CSR_CRMD_DATF];
             CRMD[`CSR_CRMD_DATM] <= write_data[`CSR_CRMD_DATM];
         end
@@ -187,7 +192,7 @@ module CSRF #(
             TLBIDX[`CSR_TLBIDX_INDEX] <= write_data[`CSR_TLBIDX_INDEX];
             TLBIDX[`CSR_TLBIDX_PS]    <= write_data[`CSR_TLBIDX_PS];
             TLBIDX[`CSR_TLBIDX_NE]    <= write_data[`CSR_TLBIDX_NE];
-        end else if (TLB_operation[`TLB_OP_SEARCH]) begin
+        end else if (TLB_operation[`TLB_OP_SRCH]) begin
             if (TLB_s_hit) begin
                 TLBIDX[`CSR_TLBIDX_INDEX] <= TLB_s_index;
                 TLBIDX[`CSR_TLBIDX_NE]    <= 1'b0;
@@ -211,9 +216,12 @@ module CSRF #(
         TLBEHI[`CSR_TLBEHI_0] <= `CSR_TLBEHI_0_WIDTH'b0;
         if (write_enable & write_number == `CSR_TLBEHI) begin
             TLBEHI[`CSR_TLBEHI_VPPN] <= write_data[`CSR_TLBEHI_VPPN];
-        end else if (|exception[`EXCEPTION_PPI:`EXCEPTION_PIL] | exception[`EXCEPTION_TLBR]) begin
-            TLBEHI[`CSR_TLBEHI_VPPN] <= exception[`EXCEPTION_PIF] ? PC[`CSR_TLBEHI_VPPN] :
-                                        vaddr[`CSR_TLBEHI_VPPN];
+        end else if (|exception[`EXCEPTION_M_PPI:`EXCEPTION_PIL] |
+                     |exception[`EXCEPTION_TLBR]) begin
+            TLBEHI[`CSR_TLBEHI_VPPN] <= (exception[`EXCEPTION_PIF] |
+                                         exception[`EXCEPTION_F_PPI] |
+                                         exception[`EXCEPTION_F_TLBR]) ? PC[`CSR_TLBEHI_VPPN] :
+                                         vaddr[`CSR_TLBEHI_VPPN];
         end else if (TLB_operation[`TLB_OP_READ]) begin
             if (TLB_r_hi[`TLBEHI_E]) begin
                 TLBEHI[`CSR_TLBEHI_VPPN] <= TLB_r_hi[`TLBEHI_VPPN];
@@ -298,8 +306,12 @@ module CSRF #(
 
     always @(posedge clk) begin
         if (|exception[`EXCEPTION_ADEF:`EXCEPTION_PIL] |
-             exception[`EXCEPTION_ALE] | exception[`EXCEPTION_TLBR] ) begin
-            BADV[`CSR_BADV_VADDR] <= exception[`EXCEPTION_ADEF] ? PC : vaddr;
+             exception[`EXCEPTION_ALE] | |exception[`EXCEPTION_TLBR] ) begin
+            BADV[`CSR_BADV_VADDR] <= (exception[`EXCEPTION_PIF] |
+                                      exception[`EXCEPTION_F_PPI] |
+                                      exception[`EXCEPTION_ADEF] |
+                                      exception[`EXCEPTION_F_TLBR]) ? PC :
+                                      vaddr;
         end
     end
 
@@ -415,9 +427,7 @@ module CSRF #(
                        {32{read_number == `CSR_DMW0}} & DMW[0] |
                        {32{read_number == `CSR_DMW1}} & DMW[1];
 
-    assign TLB_rw_index = TLB_operation[`TLB_OP_FILL] ? counter[$clog2(
-        TLB_ENTRIES
-    )-1:0] : TLBIDX[`CSR_TLBIDX_INDEX];
+    assign TLB_rw_index = TLBIDX[`CSR_TLBIDX_INDEX];
     assign TLB_sw_hi[`TLBEHI_E] = ESTAT[`CSR_ESTAT_ECODE] == `ECODE_TLBR | ~TLBIDX[`CSR_TLBIDX_NE];
     assign TLB_sw_hi[`TLBEHI_ASID] = ASID[`CSR_ASID_ASID];
     assign TLB_sw_hi[`TLBEHI_G] = TLBELO0[`CSR_TLBELO0_G] & TLBELO1[`CSR_TLBELO1_G];
@@ -433,6 +443,7 @@ module CSRF #(
     assign TLB_w_lo1[`TLBELO_MAT] = TLBELO1[`CSR_TLBELO1_MAT];
     assign TLB_w_lo1[`TLBELO_PLV] = TLBELO1[`CSR_TLBELO1_PLV];
     assign TLB_w_lo1[`TLBELO_PPN] = TLBELO1[`CSR_TLBELO1_PPN];
+    assign TLB_f_index = counter[$clog2(TLB_ENTRIES)-1:0];
 
     assign da = CRMD[`CSR_CRMD_DA];
     assign pg = CRMD[`CSR_CRMD_PG];

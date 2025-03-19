@@ -28,11 +28,19 @@ module WB_reg (
     input  wire                            MEM_refetch,
     input  wire                            MEM_ereturn,
     input  wire                            MEM_INT,
+    input  wire                            MEM_PIL,
+    input  wire                            MEM_PIS,
+    input  wire                            MEM_PIF,
+    input  wire                            MEM_PME,
+    input  wire                            MEM_IF_PPI,
+    input  wire                            MEM_EXE_PPI,
     input  wire                            MEM_ADEF,
     input  wire                            MEM_ALE,
     input  wire                            MEM_SYS,
     input  wire                            MEM_BRK,
     input  wire                            MEM_INE,
+    input  wire                            MEM_IF_TLBR,
+    input  wire                            MEM_EXE_TLBR,
     output reg  [                    31:0] WB_PC,
     output reg  [                    31:0] WB_rj_data,
     output reg  [                    31:0] WB_rkd_data,
@@ -50,11 +58,19 @@ module WB_reg (
     output reg                             WB_ereturn,
     output reg                             WB_refetch,
     output reg                             WB_INT,
+    output reg                             WB_PIL,
+    output reg                             WB_PIS,
+    output reg                             WB_PIF,
+    output reg                             WB_PME,
+    output reg                             WB_IF_PPI,
+    output reg                             WB_EXE_PPI,
     output reg                             WB_ADEF,
     output reg                             WB_ALE,
     output reg                             WB_SYS,
     output reg                             WB_BRK,
-    output reg                             WB_INE
+    output reg                             WB_INE,
+    output reg                             WB_IF_TLBR,
+    output reg                             WB_EXE_TLBR
 );
     assign WB_ready = ~WB_valid | (WB_done & 1'b1);
 
@@ -85,11 +101,19 @@ module WB_reg (
                 WB_ereturn          <= MEM_ereturn;
                 WB_refetch          <= MEM_refetch;
                 WB_INT              <= MEM_INT;
+                WB_PIL              <= MEM_PIL;
+                WB_PIS              <= MEM_PIS;
+                WB_PIF              <= MEM_PIF;
+                WB_PME              <= MEM_PME;
+                WB_IF_PPI           <= MEM_IF_PPI;
+                WB_EXE_PPI          <= MEM_EXE_PPI;
                 WB_ADEF             <= MEM_ADEF;
                 WB_ALE              <= MEM_ALE;
                 WB_SYS              <= MEM_SYS;
                 WB_BRK              <= MEM_BRK;
                 WB_INE              <= MEM_INE;
+                WB_IF_TLBR          <= MEM_IF_TLBR;
+                WB_EXE_TLBR         <= MEM_EXE_TLBR;
             end
         end
     end

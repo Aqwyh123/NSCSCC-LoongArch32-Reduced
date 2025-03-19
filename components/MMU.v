@@ -3,54 +3,57 @@
 module MMU #(
     parameter TLB_ENTRIES = 16
 ) (
-    input  wire                           clk,
+    input  wire                             clk,
     // TLB signals
-    input  wire [      `TLB_OP_WIDTH-1:0] TLB_operation,
-    input  wire [                   31:0] invtlb_vaddr,
-    input  wire [                   31:0] invtlb_asid,
-    input  wire [                    4:0] invtlb_op,
-    input  wire [$clog2(TLB_ENTRIES)-1:0] TLB_rw_index,
-    input  wire [      `TLBEHI_WIDTH-1:0] TLB_sw_hi,
-    input  wire [      `TLBELO_WIDTH-1:0] TLB_w_lo0,
-    input  wire [      `TLBELO_WIDTH-1:0] TLB_w_lo1,
-    output wire                           TLB_s_hit,
-    output wire [$clog2(TLB_ENTRIES)-1:0] TLB_s_index,
-    output wire [      `TLBEHI_WIDTH-1:0] TLB_r_hi,
-    output wire [      `TLBELO_WIDTH-1:0] TLB_r_lo0,
-    output wire [      `TLBELO_WIDTH-1:0] TLB_r_lo1,
+    input  wire [`TLB_OP_INV:`TLB_OP_WRITE] TLB_operation,
+    input  wire [                     31:0] invtlb_vaddr,
+    input  wire [                     31:0] invtlb_asid,
+    input  wire [                      4:0] invtlb_op,
+    input  wire [  $clog2(TLB_ENTRIES)-1:0] TLB_rw_index,
+    input  wire [        `TLBEHI_WIDTH-1:0] TLB_sw_hi,
+    input  wire [        `TLBELO_WIDTH-1:0] TLB_w_lo0,
+    input  wire [        `TLBELO_WIDTH-1:0] TLB_w_lo1,
+    input  wire [  $clog2(TLB_ENTRIES)-1:0] TLB_f_index,
+    output wire                             TLB_s_hit,
+    output wire [  $clog2(TLB_ENTRIES)-1:0] TLB_s_index,
+    output wire [        `TLBEHI_WIDTH-1:0] TLB_r_hi,
+    output wire [        `TLBELO_WIDTH-1:0] TLB_r_lo0,
+    output wire [        `TLBELO_WIDTH-1:0] TLB_r_lo1,
     // status signals
-    input  wire                           CSR_da,
-    input  wire                           CSR_pg,
-    input  wire [                    9:0] CSR_asid,
-    input  wire [                    1:0] CSR_plv,
+    input  wire                             CSR_da,
+    input  wire                             CSR_pg,
+    input  wire [                      9:0] CSR_asid,
+    input  wire [                      1:0] CSR_plv,
     // DMW signals
-    input  wire [                    1:0] DMW0_plv,
-    input  wire [                    2:0] DMW0_pseg,
-    input  wire [                    2:0] DMW0_vseg,
-    input  wire [                    1:0] DMW1_plv,
-    input  wire [                    2:0] DMW1_pseg,
-    input  wire [                    2:0] DMW1_vseg,
+    input  wire [                      1:0] DMW0_plv,
+    input  wire [                      2:0] DMW0_pseg,
+    input  wire [                      2:0] DMW0_vseg,
+    input  wire [                      1:0] DMW1_plv,
+    input  wire [                      2:0] DMW1_pseg,
+    input  wire [                      2:0] DMW1_vseg,
     // inst fetch signals
-    input  wire                           inst_fetch,
-    input  wire [                   31:0] inst_vaddr,
-    output wire [                   31:0] inst_paddr,
+    input  wire                             inst_fetch,
+    input  wire [                     31:0] inst_vaddr,
+    output wire [                     31:0] inst_paddr,
     // data load / store signals
-    input  wire                           data_load,
-    input  wire                           data_store,
-    input  wire [                   31:0] data_vaddr,
-    output wire [                   31:0] data_paddr,
+    input  wire                             data_load,
+    input  wire                             data_store,
+    input  wire [                     31:0] data_vaddr,
+    output wire [                     31:0] data_paddr,
     // exception signals
-    output wire                           PIL,
-    output wire                           PIS,
-    output wire                           PIF,
-    output wire                           PME,
-    output wire                           inst_PPI,
-    output wire                           data_PPI,
-    output wire                           inst_TLBR,
-    output wire                           data_TLBR
+    output wire                             PIL,
+    output wire                             PIS,
+    output wire                             PIF,
+    output wire                             PME,
+    output wire                             inst_PPI,
+    output wire                             data_PPI,
+    output wire                             inst_TLBR,
+    output wire                             data_TLBR
 );
+    wire [$clog2(TLB_ENTRIES)-1:0] TLB_wf_index;
+
     wire                           CSR_mode_is_dir;
-    wire                           CSR_mode_is_map;
+    // wire                           CSR_mode_is_map;
 
     wire                           inst_DMW0_hit;
     wire                           inst_DMW1_hit;
@@ -74,8 +77,14 @@ module MMU #(
     wire                           TLB1_d;
     wire                           TLB1_v;
 
+    assign TLB_wf_index = {$clog2(
+        TLB_ENTRIES
+    ) {TLB_operation[`TLB_OP_WRITE]}} & TLB_rw_index | {$clog2(
+        TLB_ENTRIES
+    ) {TLB_operation[`TLB_OP_FILL]}} & TLB_f_index;
+
     assign CSR_mode_is_dir = CSR_da & ~CSR_pg;
-    assign CSR_mode_is_map = ~CSR_da & CSR_pg;
+    // assign CSR_mode_is_map = ~CSR_da & CSR_pg;
 
     assign inst_DMW0_hit = inst_vaddr[31:29] == DMW0_vseg & CSR_plv <= DMW0_plv;
     assign inst_DMW1_hit = inst_vaddr[31:29] == DMW1_vseg & CSR_plv <= DMW1_plv;
@@ -86,7 +95,7 @@ module MMU #(
                        {TLB0_ppn[31:`PPN_4MB_LSB], inst_vaddr[22-1:0]};
     assign data_DMW0_hit = data_vaddr[31:29] == DMW0_vseg & CSR_plv <= DMW0_plv;
     assign data_DMW1_hit = data_vaddr[31:29] == DMW1_vseg & CSR_plv <= DMW1_plv;
-    assign data_paddr = CSR_mode_is_dir ? inst_vaddr :
+    assign data_paddr = CSR_mode_is_dir ? data_vaddr :
                         data_DMW0_hit ? {DMW0_pseg, data_vaddr[28:0]} :
                         data_DMW1_hit ? {DMW1_pseg, data_vaddr[28:0]} :
                         TLB1_ps == 6'd12 ? {TLB1_ppn[31:`PPN_4KB_LSB], data_vaddr[12-1:0]} :
@@ -117,7 +126,7 @@ module MMU #(
         .r_d1       (TLB_r_lo1[`TLBELO_D]),
         .r_v1       (TLB_r_lo1[`TLBELO_V]),
         .we         (TLB_operation[`TLB_OP_WRITE] | TLB_operation[`TLB_OP_FILL]),
-        .w_index    (TLB_rw_index),
+        .w_index    (TLB_wf_index),
         .w_vppn     (TLB_sw_hi[`TLBEHI_VPPN]),
         .w_ps       (TLB_sw_hi[`TLBEHI_PS]),
         .w_g        (TLB_sw_hi[`TLBEHI_G]),
@@ -133,7 +142,7 @@ module MMU #(
         .w_mat1     (TLB_w_lo1[`TLBELO_MAT]),
         .w_d1       (TLB_w_lo1[`TLBELO_D]),
         .w_v1       (TLB_w_lo1[`TLBELO_V]),
-        .invtlb_en  (TLB_operation[`TLB_OP_INVALID]),
+        .invtlb_en  (TLB_operation[`TLB_OP_INV]),
         .invtlb_op  (invtlb_op),
         .invtlb_vppn(invtlb_vaddr[31:`VPPN_4KB_LSB]),
         .invtlb_asid(invtlb_asid[9:0]),

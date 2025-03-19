@@ -135,7 +135,7 @@ module ID_stage (
 
     assign invtlb_op = rd;
 
-    assign refetch = |TLB_operation[`TLB_OP_INVALID:`TLB_OP_READ] |
+    assign refetch = |TLB_operation[`TLB_OP_INV:`TLB_OP_READ] |
                       CSR_write & (CSR_number == `CSR_CRMD | CSR_number == `CSR_ASID |
                                    CSR_number == `CSR_DMW0 | CSR_number == `CSR_DMW1);
 endmodule

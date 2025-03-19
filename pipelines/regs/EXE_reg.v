@@ -37,10 +37,13 @@ module EXE_reg (
     input  wire                            ID_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new,
     input  wire                            ID_INT,
+    input  wire                            ID_PIF,
+    input  wire                            ID_IF_PPI,
     input  wire                            ID_ADEF,
     input  wire                            ID_SYS,
     input  wire                            ID_BRK,
     input  wire                            ID_INE,
+    input  wire                            ID_IF_TLBR,
     output reg  [                    31:0] EXE_PC,
     output reg  [                    31:0] EXE_link,
     output reg  [                    31:0] EXE_imm,
@@ -65,10 +68,13 @@ module EXE_reg (
     output reg                             EXE_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     output reg                             EXE_INT,
+    output reg                             EXE_PIF,
+    output reg                             EXE_IF_PPI,
     output reg                             EXE_ADEF,
     output reg                             EXE_SYS,
     output reg                             EXE_BRK,
-    output reg                             EXE_INE
+    output reg                             EXE_INE,
+    output reg                             EXE_IF_TLBR
 );
     assign EXE_ready        = ~EXE_valid | (EXE_done & MEM_ready);
     assign EXE_to_MEM_valid = EXE_valid & EXE_done;
@@ -107,10 +113,13 @@ module EXE_reg (
                 EXE_refetch          <= ID_refetch;
                 EXE_GPR_new          <= ID_GPR_new;
                 EXE_INT              <= ID_INT;
+                EXE_PIF              <= ID_PIF;
+                EXE_IF_PPI           <= ID_IF_PPI;
                 EXE_ADEF             <= ID_ADEF;
                 EXE_SYS              <= ID_SYS;
                 EXE_BRK              <= ID_BRK;
                 EXE_INE              <= ID_INE;
+                EXE_IF_TLBR          <= ID_IF_TLBR;
             end
         end
     end

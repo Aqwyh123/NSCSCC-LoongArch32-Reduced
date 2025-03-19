@@ -54,23 +54,30 @@ module mycpu_top #(
 );
     wire                            clk;
     wire                            reset;
+    // inst MMU signals
+    wire                            inst_fetch;
+    wire [                    31:0] inst_vaddr;
+    wire [                    31:0] inst_paddr;
     // inst sram interface
     wire                            inst_sram_req;
     wire                            inst_sram_wr;
     wire [                     1:0] inst_sram_size;
-    wire [                    31:0] inst_sram_vaddr;
-    wire [                    31:0] inst_sram_paddr;
+    wire [                    31:0] inst_sram_addr;
     wire [                     3:0] inst_sram_wstrb;
     wire [                    31:0] inst_sram_wdata;
     wire                            inst_sram_addr_ok;
     wire                            inst_sram_data_ok;
     wire [                    31:0] inst_sram_rdata;
+    // data MMU signals
+    wire                            data_load;
+    wire                            data_store;
+    wire [                    31:0] data_vaddr;
+    wire [                    31:0] data_paddr;
     // data sram interface
     wire                            data_sram_req;
     wire                            data_sram_wr;
     wire [                     1:0] data_sram_size;
-    wire [                    31:0] data_sram_vaddr;
-    wire [                    31:0] data_sram_paddr;
+    wire [                    31:0] data_sram_addr;
     wire [                     3:0] data_sram_wstrb;
     wire [                    31:0] data_sram_wdata;
     wire                            data_sram_addr_ok;
@@ -108,14 +115,22 @@ module mycpu_top #(
     wire [       `TLBEHI_WIDTH-1:0] TLB_sw_hi;
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo0;
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo1;
+    wire [ $clog2(TLB_ENTRIES)-1:0] TLB_f_index;
+
+    wire                            pre_IF_PIF;
+    wire                            pre_IF_PPI;
+    wire                            pre_IF_TLBR;
 
     wire                            IF_to_ID_valid;
 
     wire [                    31:0] IF_PC;
     wire [                    31:0] IF_link;
     wire [                    31:0] IF_inst;
-    // wire [    `EXCEPTION_WIDTH-1:0] IF_exception;
+    wire                            IF_PIF;
+    wire                            IF_PPI;
     wire                            IF_ADEF;
+    wire                            IF_TLBR;
+    // wire [    `EXCEPTION_WIDTH-1:0] IF_exception;
 
     wire                            ID_done;
     wire                            ID_valid;
@@ -129,12 +144,12 @@ module mycpu_top #(
     wire                            ID_refetch;
     wire                            ID_INT;
     wire                            ID_PIF;
-    wire                            ID_PPI;
+    wire                            ID_IF_PPI;
     wire                            ID_ADEF;
     wire                            ID_SYS;
     wire                            ID_BRK;
     wire                            ID_INE;
-    wire                            ID_TLBR;
+    wire                            ID_IF_TLBR;
 
     wire                            ID_stall;
     wire                            ID_GPR_stall;
@@ -208,13 +223,16 @@ module mycpu_top #(
     wire                            EXE_INT;
     wire                            EXE_PIL;
     wire                            EXE_PIS;
+    wire                            EXE_PIF;
     wire                            EXE_PME;
+    wire                            EXE_IF_PPI;
     wire                            EXE_PPI;
     wire                            EXE_ADEF;
     wire                            EXE_ALE;
     wire                            EXE_SYS;
     wire                            EXE_BRK;
     wire                            EXE_INE;
+    wire                            EXE_IF_TLBR;
     wire                            EXE_TLBR;
 
     wire [                    31:0] EXE_rj_data;
@@ -254,11 +272,19 @@ module mycpu_top #(
     wire                            MEM_ereturn;
     wire                            MEM_refetch;
     wire                            MEM_INT;
+    wire                            MEM_PIL;
+    wire                            MEM_PIS;
+    wire                            MEM_PIF;
+    wire                            MEM_PME;
+    wire                            MEM_IF_PPI;
+    wire                            MEM_EXE_PPI;
     wire                            MEM_ADEF;
     wire                            MEM_ALE;
     wire                            MEM_SYS;
     wire                            MEM_BRK;
     wire                            MEM_INE;
+    wire                            MEM_IF_TLBR;
+    wire                            MEM_EXE_TLBR;
 
     wire [                    31:0] MEM_rj_data;
     wire [                    31:0] MEM_rkd_data;
@@ -295,11 +321,19 @@ module mycpu_top #(
     wire                            WB_ereturn;
     wire                            WB_refetch;
     wire                            WB_INT;
+    wire                            WB_PIL;
+    wire                            WB_PIS;
+    wire                            WB_PIF;
+    wire                            WB_PME;
+    wire                            WB_IF_PPI;
+    wire                            WB_EXE_PPI;
     wire                            WB_ADEF;
     wire                            WB_ALE;
     wire                            WB_SYS;
     wire                            WB_BRK;
     wire                            WB_INE;
+    wire                            WB_IF_TLBR;
+    wire                            WB_EXE_TLBR;
 
     wire [                    31:0] WB_rj_data;
     wire [                    31:0] WB_rkd_data;
@@ -329,7 +363,7 @@ module mycpu_top #(
         .inst_sram_req    (inst_sram_req),
         .inst_sram_wr     (inst_sram_wr),
         .inst_sram_size   (inst_sram_size),
-        .inst_sram_addr   (inst_sram_vaddr),
+        .inst_sram_addr   (inst_sram_addr),
         .inst_sram_wstrb  (inst_sram_wstrb),
         .inst_sram_wdata  (inst_sram_wdata),
         .inst_sram_addr_ok(inst_sram_addr_ok),
@@ -338,7 +372,7 @@ module mycpu_top #(
         .data_sram_req    (data_sram_req),
         .data_sram_wr     (data_sram_wr),
         .data_sram_size   (data_sram_size),
-        .data_sram_addr   (data_sram_vaddr),
+        .data_sram_addr   (data_sram_addr),
         .data_sram_wstrb  (data_sram_wstrb),
         .data_sram_wdata  (data_sram_wdata),
         .data_sram_addr_ok(data_sram_addr_ok),
@@ -397,10 +431,16 @@ module mycpu_top #(
         .bj_target        (ID_target_PC),
         .ID_ready         (ID_ready),
         .IF_to_ID_valid   (IF_to_ID_valid),
+        .inst_fetch       (inst_fetch),
+        .inst_vaddr       (inst_vaddr),
+        .inst_paddr       (inst_paddr),
+        .pre_IF_PIF       (pre_IF_PIF),
+        .pre_IF_PPI       (pre_IF_PPI),
+        .pre_IF_TLBR      (pre_IF_TLBR),
         .inst_sram_req    (inst_sram_req),
         .inst_sram_wr     (inst_sram_wr),
         .inst_sram_size   (inst_sram_size),
-        .inst_sram_vaddr  (inst_sram_vaddr),
+        .inst_sram_addr   (inst_sram_addr),
         .inst_sram_wstrb  (inst_sram_wstrb),
         .inst_sram_wdata  (inst_sram_wdata),
         .inst_sram_addr_ok(inst_sram_addr_ok),
@@ -409,10 +449,13 @@ module mycpu_top #(
         .PC               (IF_PC),
         .link             (IF_link),
         .inst             (IF_inst),
-        .ADEF             (IF_ADEF)
+        .PIF              (IF_PIF),
+        .PPI              (IF_PPI),
+        .ADEF             (IF_ADEF),
+        .TLBR             (IF_TLBR)
     );
 
-    // assign IF_exception = {9'b0, IF_ADEF, 6'b0};
+    // assign IF_exception = {1'b0, IF_TLBR, 6'b0, IF_ADEF, 1'b0, IF_PPI, 1'b0, IF_PIF, 3'b0}
 
     ID_reg id_reg (
         .clk            (clk),
@@ -427,11 +470,17 @@ module mycpu_top #(
         .IF_PC          (IF_PC),
         .IF_link        (IF_link),
         .IF_inst        (IF_inst),
+        .IF_PIF         (IF_PIF),
+        .IF_PPI         (IF_PPI),
         .IF_ADEF        (IF_ADEF),
+        .IF_TLBR        (IF_TLBR),
         .ID_PC          (ID_PC),
         .ID_link        (ID_link),
         .ID_inst        (ID_inst),
-        .ID_ADEF        (ID_ADEF)
+        .ID_PIF         (ID_PIF),
+        .ID_IF_PPI      (ID_IF_PPI),
+        .ID_ADEF        (ID_ADEF),
+        .ID_IF_TLBR     (ID_IF_TLBR)
     );
 
     ID_stage id_stage (
@@ -495,7 +544,22 @@ module mycpu_top #(
 
     assign ID_INT = request & ~ID_int_stall;
 
-    assign ID_exception = {4'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 5'b0, ID_INT};
+    assign ID_exception = {
+        1'b0,
+        ID_IF_TLBR,
+        1'b0,
+        ID_INE,
+        ID_BRK,
+        ID_SYS,
+        2'b0,
+        ID_ADEF,
+        1'b0,
+        ID_IF_PPI,
+        1'b0,
+        IF_PIF,
+        2'b0,
+        ID_INT
+    };
 
     assign ID_EXE_GPR1_A = |EXE_GPR_write_num & EXE_GPR_write &
                             ID_GPR_read_num1 == EXE_GPR_write_num;
@@ -538,8 +602,8 @@ module mycpu_top #(
     assign ID_int_stall = EXE_valid & ID_EXE_int | MEM_valid & ID_MEM_int | WB_valid & ID_WB_int;
 
     // TODO: delay memory write
-    assign ID_flush_stall = EXE_valid & (EXE_refetch | EXE_ereturn) |
-                            MEM_valid & (MEM_refetch | MEM_ereturn);
+    assign ID_flush_stall = EXE_valid & (|EXE_exception | EXE_ereturn | EXE_refetch) |
+                            MEM_valid & (|MEM_exception | MEM_ereturn | MEM_refetch);
 
     assign ID_bj_stall = ID_valid & ID_jump & (EXE_valid & ID_EXE_GPR1_A &
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
@@ -587,10 +651,13 @@ module mycpu_top #(
         .ID_refetch          (ID_refetch),
         .ID_GPR_new          (ID_GPR_new),
         .ID_INT              (ID_INT),
+        .ID_PIF              (ID_PIF),
+        .ID_IF_PPI           (ID_IF_PPI),
         .ID_ADEF             (ID_ADEF),
         .ID_SYS              (ID_SYS),
         .ID_BRK              (ID_BRK),
         .ID_INE              (ID_INE),
+        .ID_IF_TLBR          (ID_IF_TLBR),
         .EXE_PC              (EXE_PC),
         .EXE_link            (EXE_link),
         .EXE_imm             (EXE_imm),
@@ -615,10 +682,13 @@ module mycpu_top #(
         .EXE_refetch         (EXE_refetch),
         .EXE_GPR_new         (EXE_GPR_new),
         .EXE_INT             (EXE_INT),
+        .EXE_PIF             (EXE_PIF),
+        .EXE_IF_PPI          (EXE_IF_PPI),
         .EXE_ADEF            (EXE_ADEF),
         .EXE_SYS             (EXE_SYS),
         .EXE_BRK             (EXE_BRK),
-        .EXE_INE             (EXE_INE)
+        .EXE_INE             (EXE_INE),
+        .EXE_IF_TLBR         (EXE_IF_TLBR)
     );
 
     EXE_stage exe_stage (
@@ -627,15 +697,15 @@ module mycpu_top #(
         .valid            (EXE_valid),
         .MEM_ready        (MEM_ready),
         .done             (EXE_done),
-        .MEM_valid        (MEM_valid),
-        .WB_valid         (WB_valid),
+        .data_load        (data_load),
+        .data_store       (data_store),
+        .data_vaddr       (data_vaddr),
+        .data_paddr       (data_paddr),
         .exception        (EXE_exception),
-        .MEM_exception    (MEM_exception),
-        .WB_exception     (WB_exception),
         .data_sram_req    (data_sram_req),
         .data_sram_wr     (data_sram_wr),
         .data_sram_size   (data_sram_size),
-        .data_sram_vaddr  (data_sram_vaddr),
+        .data_sram_addr   (data_sram_addr),
         .data_sram_wstrb  (data_sram_wstrb),
         .data_sram_wdata  (data_sram_wdata),
         .data_sram_addr_ok(data_sram_addr_ok),
@@ -665,7 +735,22 @@ module mycpu_top #(
     );
 
     assign EXE_exception = {
-        4'b0, EXE_INE, EXE_BRK, EXE_SYS, EXE_ALE, 1'b0, EXE_ADEF, 5'b0, EXE_INT
+        EXE_TLBR,
+        EXE_IF_TLBR,
+        1'b0,
+        EXE_INE,
+        EXE_BRK,
+        EXE_SYS,
+        EXE_ALE,
+        1'b0,
+        EXE_ADEF,
+        EXE_PPI,
+        EXE_IF_PPI,
+        EXE_PME,
+        EXE_PIF,
+        EXE_PIS,
+        EXE_PIL,
+        EXE_INT
     };
 
     assign EXE_forward_data = {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LINK]}} & EXE_link |
@@ -702,11 +787,19 @@ module mycpu_top #(
         .EXE_refetch         (EXE_refetch),
         .EXE_GPR_new         (EXE_GPR_new),
         .EXE_INT             (EXE_INT),
+        .EXE_PIL             (EXE_PIL),
+        .EXE_PIS             (EXE_PIS),
+        .EXE_PIF             (EXE_PIF),
+        .EXE_PME             (EXE_PME),
+        .EXE_IF_PPI          (EXE_IF_PPI),
+        .EXE_PPI             (EXE_PPI),
         .EXE_ADEF            (EXE_ADEF),
         .EXE_ALE             (EXE_ALE),
         .EXE_SYS             (EXE_SYS),
         .EXE_BRK             (EXE_BRK),
         .EXE_INE             (EXE_INE),
+        .EXE_IF_TLBR         (EXE_IF_TLBR),
+        .EXE_TLBR            (EXE_TLBR),
         .MEM_PC              (MEM_PC),
         .MEM_rj_data         (MEM_rj_data),
         .MEM_rkd_data        (MEM_rkd_data),
@@ -727,11 +820,19 @@ module mycpu_top #(
         .MEM_ereturn         (MEM_ereturn),
         .MEM_GPR_new         (MEM_GPR_new),
         .MEM_INT             (MEM_INT),
+        .MEM_PIL             (MEM_PIL),
+        .MEM_PIS             (MEM_PIS),
+        .MEM_PIF             (MEM_PIF),
+        .MEM_PME             (MEM_PME),
+        .MEM_IF_PPI          (MEM_IF_PPI),
+        .MEM_EXE_PPI         (MEM_EXE_PPI),
         .MEM_ADEF            (MEM_ADEF),
         .MEM_ALE             (MEM_ALE),
         .MEM_SYS             (MEM_SYS),
         .MEM_BRK             (MEM_BRK),
-        .MEM_INE             (MEM_INE)
+        .MEM_INE             (MEM_INE),
+        .MEM_IF_TLBR         (MEM_IF_TLBR),
+        .MEM_EXE_TLBR        (MEM_EXE_TLBR)
     );
 
     MEM_stage mem_stage (
@@ -749,7 +850,22 @@ module mycpu_top #(
     );
 
     assign MEM_exception = {
-        4'b0, MEM_INE, MEM_BRK, MEM_SYS, MEM_ALE, 1'b0, MEM_ADEF, 5'b0, MEM_INT
+        MEM_EXE_TLBR,
+        MEM_IF_TLBR,
+        1'b0,
+        MEM_INE,
+        MEM_BRK,
+        MEM_SYS,
+        MEM_ALE,
+        1'b0,
+        MEM_ADEF,
+        MEM_EXE_PPI,
+        MEM_IF_PPI,
+        MEM_PME,
+        MEM_PIF,
+        MEM_PIS,
+        MEM_PIL,
+        MEM_INT
     };
 
     assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & MEM_CSR_result |
@@ -780,11 +896,19 @@ module mycpu_top #(
         .MEM_ereturn         (MEM_ereturn),
         .MEM_refetch         (MEM_refetch),
         .MEM_INT             (MEM_INT),
+        .MEM_PIL             (MEM_PIL),
+        .MEM_PIS             (MEM_PIS),
+        .MEM_PIF             (MEM_PIF),
+        .MEM_PME             (MEM_PME),
+        .MEM_IF_PPI          (MEM_IF_PPI),
+        .MEM_EXE_PPI         (MEM_EXE_PPI),
         .MEM_ADEF            (MEM_ADEF),
         .MEM_ALE             (MEM_ALE),
         .MEM_SYS             (MEM_SYS),
         .MEM_BRK             (MEM_BRK),
         .MEM_INE             (MEM_INE),
+        .MEM_IF_TLBR         (MEM_IF_TLBR),
+        .MEM_EXE_TLBR        (MEM_EXE_TLBR),
         .WB_PC               (WB_PC),
         .WB_rj_data          (WB_rj_data),
         .WB_rkd_data         (WB_rkd_data),
@@ -802,11 +926,19 @@ module mycpu_top #(
         .WB_ereturn          (WB_ereturn),
         .WB_refetch          (WB_refetch),
         .WB_INT              (WB_INT),
+        .WB_PIL              (WB_PIL),
+        .WB_PIS              (WB_PIS),
+        .WB_PIF              (WB_PIF),
+        .WB_PME              (WB_PME),
+        .WB_IF_PPI           (WB_IF_PPI),
+        .WB_EXE_PPI          (WB_EXE_PPI),
         .WB_ADEF             (WB_ADEF),
         .WB_ALE              (WB_ALE),
         .WB_SYS              (WB_SYS),
         .WB_BRK              (WB_BRK),
-        .WB_INE              (WB_INE)
+        .WB_INE              (WB_INE),
+        .WB_IF_TLBR          (WB_IF_TLBR),
+        .WB_EXE_TLBR         (WB_EXE_TLBR)
     );
 
     WB_stage wb_stage (
@@ -824,7 +956,24 @@ module mycpu_top #(
         .CSR_write_enable(WB_CSR_write_enable)
     );
 
-    assign WB_exception = {4'b0, WB_INE, WB_BRK, WB_SYS, WB_ALE, 1'b0, WB_ADEF, 5'b0, WB_INT};
+    assign WB_exception = {
+        WB_EXE_TLBR,
+        WB_IF_TLBR,
+        1'b0,
+        WB_INE,
+        WB_BRK,
+        WB_SYS,
+        WB_ALE,
+        1'b0,
+        WB_ADEF,
+        WB_EXE_PPI,
+        WB_IF_PPI,
+        WB_PME,
+        WB_PIF,
+        WB_PIS,
+        WB_PIL,
+        WB_INT
+    };
 
     // assign WB_forward_data   = WB_GPR_write_data;
 
@@ -849,7 +998,7 @@ module mycpu_top #(
         .plv1         (PLV1),
         .pseg1        (PSEG1),
         .vseg1        (VSEG1),
-        .TLB_operation({`TLB_OP_WIDTH{WB_valid & ~|WB_exception}} & WB_TLB_operation),
+        .TLB_operation({2{WB_valid & ~|WB_exception}} & WB_TLB_operation[1:0]),
         .TLB_s_hit    (TLB_s_hit),
         .TLB_s_index  (TLB_s_index),
         .TLB_r_hi     (TLB_r_hi),
@@ -859,6 +1008,7 @@ module mycpu_top #(
         .TLB_sw_hi    (TLB_sw_hi),
         .TLB_w_lo0    (TLB_w_lo0),
         .TLB_w_lo1    (TLB_w_lo1),
+        .TLB_f_index  (TLB_f_index),
         .hw_int       (8'b0),
         .ip_int       (1'b0),
         .interupt     (request),
@@ -875,7 +1025,7 @@ module mycpu_top #(
         .TLB_ENTRIES(`TLB_ENTRIES)
     ) mmu (
         .clk          (clk),
-        .TLB_operation({`TLB_OP_WIDTH{WB_valid & ~|WB_exception}} & WB_TLB_operation),
+        .TLB_operation({3{WB_valid & ~|WB_exception}} & WB_TLB_operation[4:2]),
         .invtlb_vaddr (WB_rkd_data),
         .invtlb_asid  (WB_rj_data),
         .invtlb_op    (WB_invtlb_op),
@@ -888,6 +1038,7 @@ module mycpu_top #(
         .TLB_r_hi     (TLB_r_hi),
         .TLB_r_lo0    (TLB_r_lo0),
         .TLB_r_lo1    (TLB_r_lo1),
+        .TLB_f_index  (TLB_f_index),
         .CSR_da       (DA),
         .CSR_pg       (PG),
         .CSR_asid     (ASID),
@@ -898,20 +1049,20 @@ module mycpu_top #(
         .DMW1_plv     (PLV1),
         .DMW1_pseg    (PSEG1),
         .DMW1_vseg    (VSEG1),
-        .inst_fetch   (inst_sram_req),
-        .inst_vaddr   (inst_sram_vaddr),
-        .inst_paddr   (inst_sram_paddr),
-        .data_load    (data_sram_req & ~data_sram_wr),
-        .data_store   (data_sram_req & data_sram_wr),
-        .data_vaddr   (data_sram_vaddr),
-        .data_paddr   (data_sram_paddr),
+        .inst_fetch   (inst_fetch),
+        .inst_vaddr   (inst_vaddr),
+        .inst_paddr   (inst_paddr),
+        .data_load    (data_load),
+        .data_store   (data_store),
+        .data_vaddr   (data_vaddr),
+        .data_paddr   (data_paddr),
         .PIL          (EXE_PIL),
         .PIS          (EXE_PIS),
-        .PIF          (ID_PIF),
+        .PIF          (pre_IF_PIF),
         .PME          (EXE_PME),
-        .inst_PPI     (ID_PPI),
+        .inst_PPI     (pre_IF_PPI),
         .data_PPI     (EXE_PPI),
-        .inst_TLBR    (ID_TLBR),
+        .inst_TLBR    (pre_IF_TLBR),
         .data_TLBR    (EXE_TLBR)
     );
 

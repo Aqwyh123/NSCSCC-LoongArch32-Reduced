@@ -33,11 +33,19 @@ module MEM_reg (
     input  wire                            EXE_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     input  wire                            EXE_INT,
+    input  wire                            EXE_PIL,
+    input  wire                            EXE_PIS,
+    input  wire                            EXE_PIF,
+    input  wire                            EXE_PME,
+    input  wire                            EXE_IF_PPI,
+    input  wire                            EXE_PPI,
     input  wire                            EXE_ADEF,
     input  wire                            EXE_ALE,
     input  wire                            EXE_SYS,
     input  wire                            EXE_BRK,
     input  wire                            EXE_INE,
+    input  wire                            EXE_IF_TLBR,
+    input  wire                            EXE_TLBR,
     output reg  [                    31:0] MEM_PC,
     output reg  [                    31:0] MEM_rj_data,
     output reg  [                    31:0] MEM_rkd_data,
@@ -58,11 +66,19 @@ module MEM_reg (
     output reg                             MEM_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new,
     output reg                             MEM_INT,
+    output reg                             MEM_PIL,
+    output reg                             MEM_PIS,
+    output reg                             MEM_PIF,
+    output reg                             MEM_PME,
+    output reg                             MEM_IF_PPI,
+    output reg                             MEM_EXE_PPI,
     output reg                             MEM_ADEF,
     output reg                             MEM_ALE,
     output reg                             MEM_SYS,
     output reg                             MEM_BRK,
-    output reg                             MEM_INE
+    output reg                             MEM_INE,
+    output reg                             MEM_IF_TLBR,
+    output reg                             MEM_EXE_TLBR
 );
     assign MEM_ready       = ~MEM_valid | (MEM_done & WB_ready);
     assign MEM_to_WB_valid = MEM_valid & MEM_done;
@@ -97,11 +113,19 @@ module MEM_reg (
                 MEM_refetch          <= EXE_refetch;
                 MEM_GPR_new          <= EXE_GPR_new;
                 MEM_INT              <= EXE_INT;
+                MEM_PIL              <= EXE_PIL;
+                MEM_PIS              <= EXE_PIS;
+                MEM_PIF              <= EXE_PIF;
+                MEM_PME              <= EXE_PME;
+                MEM_IF_PPI           <= EXE_IF_PPI;
+                MEM_EXE_PPI          <= EXE_PPI;
                 MEM_ADEF             <= EXE_ADEF;
                 MEM_ALE              <= EXE_ALE;
                 MEM_SYS              <= EXE_SYS;
                 MEM_BRK              <= EXE_BRK;
                 MEM_INE              <= EXE_INE;
+                MEM_IF_TLBR          <= EXE_IF_TLBR;
+                MEM_EXE_TLBR         <= EXE_TLBR;
             end
         end
     end
