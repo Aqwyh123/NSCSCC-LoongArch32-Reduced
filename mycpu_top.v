@@ -93,7 +93,7 @@ module mycpu_top #(
     wire [                    31:0] eentry;
     wire [                    31:0] eraddr;
     wire [                    31:0] rentry;
-    wire [                    31:0] rtarget;
+    wire [                    31:0] rsource;
 
     wire                            DA;
     wire                            PG;
@@ -425,7 +425,7 @@ module mycpu_top #(
         .eentry           (eentry),
         .eraddr           (eraddr),
         .rentry           (rentry),
-        .rtarget          (rtarget),
+        .rsource          (rsource),
         .bj_taken         (ID_bj_taken),
         .bj_stall         (ID_bj_stall),
         .bj_target        (ID_target_PC),
@@ -1070,7 +1070,7 @@ module mycpu_top #(
     assign exception         = {`EXCEPTION_WIDTH{WB_valid}} & WB_exception;
     assign ereturn           = WB_valid & WB_ereturn;
     assign refetch           = WB_valid & WB_refetch;
-    assign rtarget           = WB_PC + 3'h4;
+    assign rsource           = WB_PC;
     assign flush             = WB_valid & (|WB_exception | WB_ereturn | WB_refetch);
 
     assign debug_wb_pc       = WB_PC;
