@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module AXI_Bridge (
     input  wire        aclk,

@@ -1,4 +1,4 @@
-`include "../../macros.vh"
+`include "../../macros.h"
 
 module MEM_stage (
     // handshaking signals

@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module ID (
     input  wire [                    31:0] instruction,

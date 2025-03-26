@@ -1,4 +1,4 @@
-`include "../../macros.vh"
+`include "../../macros.h"
 
 module IF_stage (
     input  wire                        clk,
@@ -146,21 +146,21 @@ module IF_stage (
         end
     end
 
-    assign inst_fetch      = 1'b1;
-    assign inst_vaddr      = pre_IF_PC;
+    assign inst_fetch = 1'b1;
+    assign inst_vaddr = pre_IF_PC;
 
     assign inst_sram_req   = ~flush & ~|pre_IF_exception &
                             (~IF_valid & inst_sram_data_ok_valid | (IF_done & ID_ready));
-    assign inst_sram_wr    = 1'b0;
-    assign inst_sram_size  = 2'b10;
-    assign inst_sram_addr  = inst_paddr;
+    assign inst_sram_wr = 1'b0;
+    assign inst_sram_size = 2'b10;
+    assign inst_sram_addr = inst_paddr;
     assign inst_sram_wstrb = 4'b0000;
     assign inst_sram_wdata = 32'h0;
 
-    assign PC              = IF_PC;
-    assign inst            = inst_sram_data_ok_temp ? inst_sram_rdata_temp : inst_sram_rdata;
-    assign PIF             = IF_PIF;
-    assign PPI             = IF_PPI;
-    assign ADEF            = IF_ADEF;
-    assign TLBR            = IF_TLBR;
+    assign PC = IF_PC;
+    assign inst = inst_sram_data_ok_temp ? inst_sram_rdata_temp : inst_sram_rdata;
+    assign PIF = IF_PIF;
+    assign PPI = IF_PPI;
+    assign ADEF = IF_ADEF;
+    assign TLBR = IF_TLBR;
 endmodule

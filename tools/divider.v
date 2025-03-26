@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module divider (
     input  wire        clk,

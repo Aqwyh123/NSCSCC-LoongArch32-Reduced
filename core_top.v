@@ -1,4 +1,4 @@
-`include "macros.vh"
+`include "macros.h"
 
 module core_top (
     input  wire        aclk,

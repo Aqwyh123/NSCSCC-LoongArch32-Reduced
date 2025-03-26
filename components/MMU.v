@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module MMU #(
     parameter TLB_ENTRIES = 16

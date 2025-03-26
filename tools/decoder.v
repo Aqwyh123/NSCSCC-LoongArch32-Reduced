@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module decoder #(
     parameter WIDTH = 2

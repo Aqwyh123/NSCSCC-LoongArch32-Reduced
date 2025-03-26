@@ -1,4 +1,4 @@
-`include "../../macros.vh"
+`include "../../macros.h"
 
 module ID_reg (
     input  wire        clk,

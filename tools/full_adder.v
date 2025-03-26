@@ -1,4 +1,4 @@
-`include "../macros.vh"
+`include "../macros.h"
 
 module full_adder #(
     parameter WIDTH = 32
