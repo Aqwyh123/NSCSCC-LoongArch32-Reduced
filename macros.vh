@@ -1,6 +1,8 @@
 `ifndef MACROS_VH
 `define MACROS_VH
 
+// `define CHIPLAB
+
 `default_nettype none
 
 `define PC_INIT 32'h1c000000
@@ -108,7 +110,11 @@
 `define TLB_OP_FILL 3
 `define TLB_OP_INV 4
 
+`ifdef CHIPLAB
+`define TLB_ENTRIES 32
+`else
 `define TLB_ENTRIES 16
+`endif
 
 `define VALEN 32
 `define VPPN_WIDTH (`VALEN-13)

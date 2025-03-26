@@ -36,6 +36,7 @@ module ID_stage (
     output wire                            bj_taken,
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
+    output wire [                    31:0] link,
     output wire                            ereturn,
     output wire                            refetch,
     output wire                            SYS,
@@ -123,6 +124,8 @@ module ID_stage (
                  {32{imm_src[`IMM_SRC_SI12]}} & {{20{i12[11]}}, i12} |
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
+
+    assign link = PC + 3'h4;
 
     assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
                            GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;

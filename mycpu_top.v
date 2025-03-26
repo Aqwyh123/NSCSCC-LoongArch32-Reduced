@@ -1,10 +1,11 @@
 `include "macros.vh"
 
-module mycpu_top #(
-    parameter TLB_ENTRIES = `TLB_ENTRIES
-) (
+module mycpu_top (
     input  wire        aclk,
     input  wire        aresetn,
+`ifdef CHIPLAB
+    input  wire [ 7:0] intrpt,
+`endif
     // read requast channel
     output wire [ 3:0] arid,
     output wire [31:0] araddr,
@@ -52,8 +53,11 @@ module mycpu_top #(
     output wire [ 4:0] debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata
 );
-    wire                            clk;
-    wire                            reset;
+    wire clk;
+    wire reset;
+`ifndef CHIPLAB
+    wire [7:0] intrpt = 8'h0;
+`endif
     // inst MMU signals
     wire                            inst_fetch;
     wire [                    31:0] inst_vaddr;
@@ -107,15 +111,15 @@ module mycpu_top #(
     wire [                     2:0] VSEG1;
 
     wire                            TLB_s_hit;
-    wire [ $clog2(TLB_ENTRIES)-1:0] TLB_s_index;
+    wire [$clog2(`TLB_ENTRIES)-1:0] TLB_s_index;
     wire [       `TLBEHI_WIDTH-1:0] TLB_r_hi;
     wire [       `TLBELO_WIDTH-1:0] TLB_r_lo0;
     wire [       `TLBELO_WIDTH-1:0] TLB_r_lo1;
-    wire [ $clog2(TLB_ENTRIES)-1:0] TLB_rw_index;
+    wire [$clog2(`TLB_ENTRIES)-1:0] TLB_rw_index;
     wire [       `TLBEHI_WIDTH-1:0] TLB_sw_hi;
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo0;
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo1;
-    wire [ $clog2(TLB_ENTRIES)-1:0] TLB_f_index;
+    wire [$clog2(`TLB_ENTRIES)-1:0] TLB_f_index;
 
     wire                            pre_IF_PIF;
     wire                            pre_IF_PPI;
@@ -124,7 +128,6 @@ module mycpu_top #(
     wire                            IF_to_ID_valid;
 
     wire [                    31:0] IF_PC;
-    wire [                    31:0] IF_link;
     wire [                    31:0] IF_inst;
     wire                            IF_PIF;
     wire                            IF_PPI;
@@ -447,7 +450,6 @@ module mycpu_top #(
         .inst_sram_data_ok(inst_sram_data_ok),
         .inst_sram_rdata  (inst_sram_rdata),
         .PC               (IF_PC),
-        .link             (IF_link),
         .inst             (IF_inst),
         .PIF              (IF_PIF),
         .PPI              (IF_PPI),
@@ -468,14 +470,12 @@ module mycpu_top #(
         .ID_ready       (ID_ready),
         .ID_to_EXE_valid(ID_to_EXE_valid),
         .IF_PC          (IF_PC),
-        .IF_link        (IF_link),
         .IF_inst        (IF_inst),
         .IF_PIF         (IF_PIF),
         .IF_PPI         (IF_PPI),
         .IF_ADEF        (IF_ADEF),
         .IF_TLBR        (IF_TLBR),
         .ID_PC          (ID_PC),
-        .ID_link        (ID_link),
         .ID_inst        (ID_inst),
         .ID_PIF         (ID_PIF),
         .ID_IF_PPI      (ID_IF_PPI),
@@ -517,6 +517,7 @@ module mycpu_top #(
         .bj_taken        (ID_bj_taken),
         .target_PC       (ID_target_PC),
         .imm             (ID_imm),
+        .link            (ID_link),
         .ereturn         (ID_ereturn),
         .refetch         (ID_refetch),
         .SYS             (ID_SYS),
@@ -1009,7 +1010,7 @@ module mycpu_top #(
         .TLB_w_lo0    (TLB_w_lo0),
         .TLB_w_lo1    (TLB_w_lo1),
         .TLB_f_index  (TLB_f_index),
-        .hw_int       (8'b0),
+        .hw_int       (intrpt),
         .ip_int       (1'b0),
         .interupt     (request),
         .exception    (exception),

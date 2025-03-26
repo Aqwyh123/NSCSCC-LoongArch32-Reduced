@@ -36,7 +36,6 @@ module IF_stage (
     input  wire [                31:0] inst_sram_rdata,
     // data signals
     output wire [                31:0] PC,
-    output wire [                31:0] link,
     output wire [                31:0] inst,
     output wire                        PIF,
     output wire                        PPI,
@@ -61,7 +60,6 @@ module IF_stage (
     reg                         IF_PPI;
     reg                         IF_ADEF;
     reg                         IF_TLBR;
-    wire [                31:0] IF_seq_PC;
     wire [`EXCEPTION_WIDTH-1:0] IF_exception;
 
     reg                         inst_sram_data_ok_valid;
@@ -74,7 +72,7 @@ module IF_stage (
     assign pre_IF_done = inst_sram_req & inst_sram_addr_ok | |pre_IF_exception;
     assign pre_IF_to_IF_valid = pre_IF_done;
 
-    assign pre_IF_PC = IF_next_PC_is_PC ? IF_PC : IF_seq_PC;
+    assign pre_IF_PC = IF_next_PC_is_PC ? IF_PC : IF_PC + 3'h4;
     assign pre_IF_ADEF = |pre_IF_PC[1:0];
     assign pre_IF_exception = {
         1'b0, pre_IF_TLBR, 6'b0, pre_IF_ADEF, 1'b0, pre_IF_PPI, 1'b0, pre_IF_PIF, 3'b0
@@ -122,7 +120,6 @@ module IF_stage (
         end
     end
 
-    assign IF_seq_PC    = IF_PC + 3'h4;
     assign IF_exception = {1'b0, IF_TLBR, 6'b0, IF_ADEF, 1'b0, IF_PPI, 1'b0, IF_PIF, 3'b0};
 
     always @(posedge clk) begin
@@ -130,7 +127,7 @@ module IF_stage (
             inst_sram_data_ok_valid <= 1'b1;
         end else if (flush & IF_valid & ~IF_done) begin
             inst_sram_data_ok_valid <= 1'b0;
-        end else if (~flush & inst_sram_data_ok) begin
+        end else if (inst_sram_data_ok) begin
             inst_sram_data_ok_valid <= 1'b1;
         end
     end
@@ -152,7 +149,8 @@ module IF_stage (
     assign inst_fetch      = 1'b1;
     assign inst_vaddr      = pre_IF_PC;
 
-    assign inst_sram_req   = ~flush & ~|pre_IF_exception & IF_ready;
+    assign inst_sram_req   = ~flush & ~|pre_IF_exception &
+                            (~IF_valid & inst_sram_data_ok_valid | (IF_done & ID_ready));
     assign inst_sram_wr    = 1'b0;
     assign inst_sram_size  = 2'b10;
     assign inst_sram_addr  = inst_paddr;
@@ -160,7 +158,6 @@ module IF_stage (
     assign inst_sram_wdata = 32'h0;
 
     assign PC              = IF_PC;
-    assign link            = IF_seq_PC;
     assign inst            = inst_sram_data_ok_temp ? inst_sram_rdata_temp : inst_sram_rdata;
     assign PIF             = IF_PIF;
     assign PPI             = IF_PPI;
