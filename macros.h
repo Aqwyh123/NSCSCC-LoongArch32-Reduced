@@ -84,9 +84,9 @@
 `define GPR_WRITE_SRC_WIDTH 5
 `define GPR_WRITE_SRC_LINK 0
 `define GPR_WRITE_SRC_LUI 1
-`define GPR_WRITE_SRC_ALU 2
-`define GPR_WRITE_SRC_MEM 3
-`define GPR_WRITE_SRC_CSR 4
+`define GPR_WRITE_SRC_CSR 2
+`define GPR_WRITE_SRC_ALU 3
+`define GPR_WRITE_SRC_MEM 4
 
 `define GPR_WRITE_DST_WIDTH 2
 `define GPR_WRITE_DST_R1 0
@@ -103,12 +103,13 @@
 `define CSR_SRC_CNTLO 2
 `define CSR_SRC_CNTHI 3
 
-`define TLB_OP_WIDTH 5
+`define TLB_OP_WIDTH 9
 `define TLB_OP_SRCH 0
 `define TLB_OP_READ 1
 `define TLB_OP_WRITE 2
 `define TLB_OP_FILL 3
-`define TLB_OP_INV 4
+`define TLB_OP_INV 8:4
+`define TLB_INVOP_WIDTH 5
 
 `ifdef CHIPLAB
 `define TLB_ENTRIES 32

@@ -24,21 +24,13 @@ module ID (
     output wire                            ereturn,
     output wire                            syscall,
     output wire                            __break,
+    output wire                            refetch,
     output wire                            not_existed,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
     output wire                            CSR_use
 );
-    wire [ 5:0] instr_31_26 = instruction[31:26];
-    wire [ 1:0] instr_25_24 = instruction[25:24];
-    wire [ 1:0] instr_23_22 = instruction[23:22];
-    wire [ 1:0] instr_21_20 = instruction[21:20];
-    wire [ 4:0] instr_19_15 = instruction[19:15];
-    wire [ 4:0] instr_14_10 = instruction[14:10];
-    wire [ 4:0] instr_9_5 = instruction[9:5];
-    wire [ 4:0] instr_4_0 = instruction[4:0];
-
     wire [63:0] instr_31_26_d;
     wire [ 3:0] instr_25_24_d;
     wire [ 3:0] instr_23_22_d;
@@ -51,49 +43,49 @@ module ID (
     decoder #(
         .WIDTH(6)
     ) decoder_6_64 (
-        .in (instr_31_26),
+        .in (instruction[31:26]),
         .out(instr_31_26_d)
     );
     decoder #(
         .WIDTH(2)
     ) decoder_2_4_0 (
-        .in (instr_25_24),
+        .in (instruction[25:24]),
         .out(instr_25_24_d)
     );
     decoder #(
         .WIDTH(2)
     ) decoder_2_4_1 (
-        .in (instr_23_22),
+        .in (instruction[23:22]),
         .out(instr_23_22_d)
     );
     decoder #(
         .WIDTH(2)
     ) decoder_2_4_2 (
-        .in (instr_21_20),
+        .in (instruction[21:20]),
         .out(instr_21_20_d)
     );
     decoder #(
         .WIDTH(5)
     ) decoder_5_32_0 (
-        .in (instr_19_15),
+        .in (instruction[19:15]),
         .out(instr_19_15_d)
     );
     decoder #(
         .WIDTH(5)
     ) decoder_5_32_1 (
-        .in (instr_14_10),
+        .in (instruction[14:10]),
         .out(instr_14_10_d)
     );
     decoder #(
         .WIDTH(5)
     ) decoder_5_32_2 (
-        .in (instr_9_5),
+        .in (instruction[9:5]),
         .out(instr_9_5_d)
     );
     decoder #(
         .WIDTH(5)
     ) decoder_5_32_3 (
-        .in (instr_4_0),
+        .in (instruction[4:0]),
         .out(instr_4_0_d)
     );
 
@@ -339,9 +331,15 @@ module ID (
     assign TLB_operation[`TLB_OP_READ] = tlbrd;
     assign TLB_operation[`TLB_OP_WRITE] = tlbwr;
     assign TLB_operation[`TLB_OP_FILL] = tlbfill;
-    assign TLB_operation[`TLB_OP_INV] = invtlb;
+    assign TLB_operation[`TLB_OP_INV] = {5{~invtlb}} | instruction[4:0];
 
     assign ereturn = ertn;
+
+    assign refetch =  tlbrd | tlbwr | tlbfill | invtlb |
+                     (csrwr | csrxchg) & (instruction[`I14_MSB:`I14_LSB] == `CSR_CRMD |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_ASID |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW0 |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW1);
 
     assign not_existed = ~rdcntid_w & ~rdcntvl_w & ~rdcntvh_w &
                          ~add_w & ~sub_w & ~slt & ~sltu & ~__nor & ~__and & ~__or & ~__xor &

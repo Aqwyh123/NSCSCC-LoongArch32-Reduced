@@ -28,7 +28,6 @@ module ID_stage (
     output wire                            CSR_write,
     output wire                            CSR_write_mask,
     output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
-    output wire [                     4:0] invtlb_op,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
@@ -89,6 +88,7 @@ module ID_stage (
         .CSR_write_mask     (CSR_write_mask),
         .TLB_operation      (TLB_operation),
         .ereturn            (ereturn),
+        .refetch            (refetch),
         .syscall            (SYS),
         .__break            (BRK),
         .not_existed        (INE),
@@ -135,10 +135,4 @@ module ID_stage (
     assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data |
                         {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CSR_counter[31:0] |
                         {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CSR_counter[63:32];
-
-    assign invtlb_op = rd;
-
-    assign refetch = |TLB_operation[`TLB_OP_INV:`TLB_OP_READ] |
-                      CSR_write & (CSR_number == `CSR_CRMD | CSR_number == `CSR_ASID |
-                                   CSR_number == `CSR_DMW0 | CSR_number == `CSR_DMW1);
 endmodule

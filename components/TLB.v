@@ -45,7 +45,6 @@ module TLB #(
     input  wire                           w_d1,
     input  wire                           w_v1,
     // invalid port
-    input  wire                           invtlb_en,
     input  wire [                    4:0] invtlb_op,
     input  wire [       31:`VPPN_4KB_LSB] invtlb_vppn,
     input  wire [                    9:0] invtlb_asid,
@@ -146,7 +145,7 @@ module TLB #(
                     tlb_mat1[i] <= w_mat1;
                     tlb_d1[i]   <= w_d1;
                     tlb_v1[i]   <= w_v1;
-                end else if (invtlb_en & invtlb_match[i]) begin
+                end else if (invtlb_match[i]) begin
                     tlb_e[i] <= 1'b0;
                 end
             end
