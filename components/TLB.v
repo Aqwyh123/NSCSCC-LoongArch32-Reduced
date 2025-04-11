@@ -45,7 +45,7 @@ module TLB #(
     input  wire                           w_d1,
     input  wire                           w_v1,
     // invalid port
-    input  wire [                    4:0] invtlb_op,
+    input  wire [   `TLB_INVOP_WIDTH-1:0] invtlb_op,
     input  wire [       31:`VPPN_4KB_LSB] invtlb_vppn,
     input  wire [                    9:0] invtlb_asid,
     // search port 0 (for fetch inst)
@@ -162,14 +162,14 @@ module TLB #(
                                           invtlb_vppn[31:`VPPN_4KB_LSB] :
                                           tlb_vppn[i][31:`VPPN_4MB_LSB] ==
                                           invtlb_vppn[31:`VPPN_4MB_LSB];
-            assign invtlb_match[i] = invtlb_op == 5'h00 |
-                                     invtlb_op == 5'h01 |
-                                     invtlb_op == 5'h02 & tlb_g[i] |
-                                     invtlb_op == 5'h03 & ~tlb_g[i] |
-                                     invtlb_op == 5'h04 & ~tlb_g[i] & invtlb_asid_match[i] |
-                                     invtlb_op == 5'h05 & ~tlb_g[i] & invtlb_asid_match[i] &
+            assign invtlb_match[i] = invtlb_op[0] |
+                                     invtlb_op[1] |
+                                     invtlb_op[2] & tlb_g[i] |
+                                     invtlb_op[3] & ~tlb_g[i] |
+                                     invtlb_op[4] & ~tlb_g[i] & invtlb_asid_match[i] |
+                                     invtlb_op[5] & ~tlb_g[i] & invtlb_asid_match[i] &
                                      invtlb_vppn_match[i] |
-                                     invtlb_op == 5'h06 & (tlb_g[i] | invtlb_asid_match[i]) &
+                                     invtlb_op[6] & (tlb_g[i] | invtlb_asid_match[i]) &
                                      invtlb_vppn_match[i];
 
             assign s0_match[i] = tlb_e[i] & (tlb_g[i] | tlb_asid[i] == s0_asid) &

@@ -331,7 +331,7 @@ module ID (
     assign TLB_operation[`TLB_OP_READ] = tlbrd;
     assign TLB_operation[`TLB_OP_WRITE] = tlbwr;
     assign TLB_operation[`TLB_OP_FILL] = tlbfill;
-    assign TLB_operation[`TLB_OP_INV] = {5{~invtlb}} | instruction[4:0];
+    assign TLB_operation[`TLB_OP_INV] = {`TLB_INVOP_WIDTH{invtlb}} & {instr_4_0_d[6:0]};
 
     assign ereturn = ertn;
 

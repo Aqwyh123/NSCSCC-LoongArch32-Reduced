@@ -32,7 +32,7 @@ module WB_stage (
 
     assign CSR_TLB_operation = {(`TLB_OP_READ-`TLB_OP_SRCH+1){valid & ~|exception}} &
                                TLB_operation[`TLB_OP_READ:`TLB_OP_SRCH];
-    assign TLB_TLB_operation[`TLB_OP_INV] = {`TLB_INVOP_WIDTH{~valid | |exception}} |
+    assign TLB_TLB_operation[`TLB_OP_INV] = {`TLB_INVOP_WIDTH{valid & ~|exception}} &
                                             TLB_operation[`TLB_OP_INV];
     assign TLB_TLB_operation[`TLB_OP_FILL:
                              `TLB_OP_WRITE] = {(`TLB_OP_FILL-`TLB_OP_WRITE+1){valid & ~|exception}} &

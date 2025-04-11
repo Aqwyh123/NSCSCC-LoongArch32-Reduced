@@ -71,10 +71,10 @@
 
 `define MEM_READ_WIDTH 5
 `define MEM_READ_BYTE 0
-`define MEM_READ_HALF 1
-`define MEM_READ_WORD 2
-`define MEM_READ_BYTEU 3
-`define MEM_READ_HALFU 4
+`define MEM_READ_BYTEU 1
+`define MEM_READ_HALF 2
+`define MEM_READ_HALFU 3
+`define MEM_READ_WORD 4
 
 `define MEM_WRITE_WIDTH 3
 `define MEM_WRITE_BYTE 0
@@ -103,13 +103,13 @@
 `define CSR_SRC_CNTLO 2
 `define CSR_SRC_CNTHI 3
 
-`define TLB_OP_WIDTH 9
+`define TLB_OP_WIDTH 11
 `define TLB_OP_SRCH 0
 `define TLB_OP_READ 1
 `define TLB_OP_WRITE 2
 `define TLB_OP_FILL 3
-`define TLB_OP_INV 8:4
-`define TLB_INVOP_WIDTH 5
+`define TLB_OP_INV 10:4
+`define TLB_INVOP_WIDTH 7
 
 `ifdef CHIPLAB
 `define TLB_ENTRIES 32
