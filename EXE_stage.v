@@ -1,4 +1,4 @@
-`include "../../macros.h"
+`include "macros.h"
 
 module EXE_stage (
     input  wire                        clk,

@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module MMU #(
     parameter TLB_ENTRIES = 16
@@ -91,14 +91,14 @@ module MMU #(
                         inst_DMW0_hit ? {DMW0_pseg, inst_vaddr[28:0]} :
                         inst_DMW1_hit ? {DMW1_pseg, inst_vaddr[28:0]} :
                         TLB0_ps == 6'd12 ? {TLB0_ppn[31:`PPN_4KB_LSB], inst_vaddr[12-1:0]} :
-                       {TLB0_ppn[31:`PPN_4MB_LSB], inst_vaddr[22-1:0]};
+                       {TLB0_ppn[31:`PPN_4MB_LSB], inst_vaddr[21-1:0]};
     assign data_DMW0_hit = data_vaddr[31:29] == DMW0_vseg & CSR_plv <= DMW0_plv;
     assign data_DMW1_hit = data_vaddr[31:29] == DMW1_vseg & CSR_plv <= DMW1_plv;
     assign data_paddr = CSR_mode_is_dir ? data_vaddr :
                         data_DMW0_hit ? {DMW0_pseg, data_vaddr[28:0]} :
                         data_DMW1_hit ? {DMW1_pseg, data_vaddr[28:0]} :
                         TLB1_ps == 6'd12 ? {TLB1_ppn[31:`PPN_4KB_LSB], data_vaddr[12-1:0]} :
-                       {TLB1_ppn[31:`PPN_4MB_LSB], data_vaddr[22-1:0]};
+                       {TLB1_ppn[31:`PPN_4MB_LSB], data_vaddr[21-1:0]};
 
     TLB #(
         .TLB_ENTRIES(TLB_ENTRIES)

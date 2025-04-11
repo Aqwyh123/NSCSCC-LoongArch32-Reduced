@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module CSRF #(
     parameter TLB_ENTRIES = 16
@@ -51,30 +51,27 @@ module CSRF #(
     output wire [                     31:0] eraddr,
     output wire [                     31:0] rentry
 );
-    reg [31:0] CRMD;
-    reg [31:0] PRMD;
-    reg [31:0] ECFG;
-    reg [31:0] ESTAT;
-    reg [31:0] ERA;
-    reg [31:0] BADV;
-    reg [31:0] EENTRY;
-    reg [31:0] TLBIDX;
-    reg [31:0] TLBEHI;
-    reg [31:0] TLBELO0;
-    reg [31:0] TLBELO1;
-    reg [31:0] ASID;
-    reg [31:0] SAVE[3:0];
-    reg [31:0] TID;
-    reg [31:0] TCFG;
-    reg [31:0] TVAL;
-    wire [31:0] TICLR;
-    reg [31:0] TLBRENTRY;
-    reg [31:0] DMW[1:0];
+    reg  [               31:0] CRMD;
+    reg  [               31:0] PRMD;
+    reg  [               31:0] ECFG;
+    reg  [               31:0] ESTAT;
+    reg  [               31:0] ERA;
+    reg  [               31:0] BADV;
+    reg  [               31:0] EENTRY;
+    reg  [               31:0] TLBIDX;
+    reg  [               31:0] TLBEHI;
+    reg  [               31:0] TLBELO0;
+    reg  [               31:0] TLBELO1;
+    reg  [               31:0] ASID;
+    reg  [               31:0] SAVE      [3:0];
+    reg  [               31:0] TID;
+    reg  [               31:0] TCFG;
+    reg  [               31:0] TVAL;
+    wire [               31:0] TICLR;
+    reg  [               31:0] TLBRENTRY;
+    reg  [               31:0] DMW       [1:0];
 
-    wire [12:0] ECFG_LIE = {ECFG[`CSR_ECFG_LIE_12_11], ECFG[`CSR_ECFG_LIE_9_0]};
-    wire [12:0] ESTAT_IS = {ESTAT[12:11], ESTAT[9:0]};
-
-    wire [`ECODE_WIDTH-1:0] ecode;
+    wire [   `ECODE_WIDTH-1:0] ecode;
     wire [`ESUBCODE_WIDTH-1:0] esubcode;
 
     assign ecode    = exception[`EXCEPTION_INT] ? `ECODE_INT :
@@ -312,6 +309,8 @@ module CSRF #(
                                       exception[`EXCEPTION_ADEF] |
                                       exception[`EXCEPTION_F_TLBR]) ? PC :
                                       vaddr;
+        end else if (write_enable & write_number == `CSR_BADV) begin
+            BADV[`CSR_BADV_VADDR] <= write_data[`CSR_BADV_VADDR];
         end
     end
 
@@ -339,7 +338,7 @@ module CSRF #(
 
     always @(posedge clk) begin
         if (reset) begin
-            TID[`CSR_TID_TID] <= {22'b0, `COREID};
+            TID[`CSR_TID_TID] <= {{(32 - `COREID_WIDTH) {1'b0}}, `COREID};
         end else if (write_enable & write_number == `CSR_TID) begin
             TID[`CSR_TID_TID] <= write_data[`CSR_TID_TID];
         end
@@ -468,7 +467,7 @@ module CSRF #(
     assign pseg1    = DMW[1][`CSR_DMW_PSEG];
     assign vseg1    = DMW[1][`CSR_DMW_VSEG];
 
-    assign interupt = |(ESTAT_IS & ECFG_LIE) & CRMD[`CSR_CRMD_IE];
+    assign interupt = |(ESTAT[`CSR_ESTAT_IS] & ECFG[`CSR_ECFG_LIE]) & CRMD[`CSR_CRMD_IE];
 
     assign eentry   = EENTRY;
     assign eraddr   = ERA;

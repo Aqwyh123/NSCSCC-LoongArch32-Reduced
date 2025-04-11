@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module right_shifter #(
     parameter WIDTH = 32

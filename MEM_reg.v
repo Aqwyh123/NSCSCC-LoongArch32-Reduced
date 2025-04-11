@@ -1,4 +1,4 @@
-`include "../../macros.h"
+`include "macros.h"
 
 module MEM_reg (
     input  wire                            clk,

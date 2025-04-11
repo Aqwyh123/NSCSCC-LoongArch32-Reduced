@@ -1,4 +1,4 @@
-`include "../../macros.h"
+`include "macros.h"
 
 module ID_stage (
     // control signals
@@ -125,7 +125,7 @@ module ID_stage (
                  {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
 
-    assign link = PC + 3'h4;
+    assign link = PC + 32'h4;
 
     assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
                            GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;

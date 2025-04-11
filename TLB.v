@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module TLB #(
     parameter TLB_ENTRIES = 16

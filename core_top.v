@@ -103,4 +103,61 @@ module core_top (
         .debug_wb_rf_wnum (debug0_wb_rf_wnum),
         .debug_wb_rf_wdata(debug0_wb_rf_wdata)
     );
+
+`ifdef CHIPLAB
+    my_difftest #(
+        .TLB_ENTRIES(`TLB_ENTRIES)
+    ) my_difftest (
+        .clk             (mycpu_top.clk),
+        .reset           (mycpu_top.reset),
+        .valid           (mycpu_top.WB_valid),
+        .PC              (mycpu_top.WB_PC),
+        .instr           (mycpu_top.WB_inst),
+        .GPR_write_enable(mycpu_top.WB_GPR_write_enable),
+        .GPR_write_num   (mycpu_top.WB_GPR_write_num),
+        .GPR_write_data  (mycpu_top.WB_GPR_write_data),
+        .CSR_read_data   (mycpu_top.WB_CSR_read_data),
+        .CSR_counter     (mycpu_top.WB_CSR_counter),
+        .CSR_write_enable(mycpu_top.WB_CSR_write_enable),
+        .CSR_write_number(mycpu_top.WB_CSR_write_number),
+        .TLB_f_index     (mycpu_top.TLB_f_index),
+        .TLB_operation   (mycpu_top.WB_TLB_operation),
+        .exception       (mycpu_top.exception),
+        .ereturn         (mycpu_top.ereturn),
+        .ecode           (mycpu_top.csr_file.ecode),
+        .MEM_read        (mycpu_top.WB_MEM_read),
+        .MEM_write       (mycpu_top.WB_MEM_write),
+        .MEM_vaddr       (mycpu_top.WB_ALU_result),
+        .MEM_paddr       (mycpu_top.WB_MEM_paddr),
+        .rd_data         (mycpu_top.WB_rkd_data),
+        .CRMD            (mycpu_top.csr_file.CRMD),
+        .PRMD            (mycpu_top.csr_file.PRMD),
+        .EUEN            (),
+        .ECFG            (mycpu_top.csr_file.ECFG),
+        .ESTAT           (mycpu_top.csr_file.ESTAT),
+        .ERA             (mycpu_top.csr_file.ERA),
+        .BADV            (mycpu_top.csr_file.BADV),
+        .EENTRY          (mycpu_top.csr_file.EENTRY),
+        .TLBIDX          (mycpu_top.csr_file.TLBIDX),
+        .TLBEHI          (mycpu_top.csr_file.TLBEHI),
+        .TLBELO0         (mycpu_top.csr_file.TLBELO0),
+        .TLBELO1         (mycpu_top.csr_file.TLBELO1),
+        .ASID            (mycpu_top.csr_file.ASID),
+        .PGDL            (),
+        .PGDH            (),
+        .SAVE0           (mycpu_top.csr_file.SAVE[0]),
+        .SAVE1           (mycpu_top.csr_file.SAVE[1]),
+        .SAVE2           (mycpu_top.csr_file.SAVE[2]),
+        .SAVE3           (mycpu_top.csr_file.SAVE[3]),
+        .TID             (mycpu_top.csr_file.TID),
+        .TCFG            (mycpu_top.csr_file.TCFG),
+        .TVAL            (mycpu_top.csr_file.TVAL),
+        .TICLR           (mycpu_top.csr_file.TICLR),
+        .LLBCTL          (),
+        .TLBRENTRY       (mycpu_top.csr_file.TLBRENTRY),
+        .DMW0            (mycpu_top.csr_file.DMW[0]),
+        .DMW1            (mycpu_top.csr_file.DMW[1]),
+        .GPR             (mycpu_top.gpr_file.regfile)
+    );
+`endif
 endmodule

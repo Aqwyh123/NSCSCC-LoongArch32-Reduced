@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module GPRF (
     input  wire        clk,

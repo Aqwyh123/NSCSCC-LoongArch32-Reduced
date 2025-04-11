@@ -157,6 +157,7 @@ module mycpu_top (
     wire                            ID_stall;
     wire                            ID_GPR_stall;
     wire                            ID_CSR_stall;
+    wire                            ID_TLB_stall;
     wire                            ID_int_stall;
     wire                            ID_flush_stall;
     wire                            ID_bj_stall;
@@ -171,6 +172,9 @@ module mycpu_top (
     wire                            ID_EXE_CSR;
     wire                            ID_MEM_CSR;
     wire                            ID_WB_CSR;
+    wire                            ID_EXE_TLB;
+    wire                            ID_MEM_TLB;
+    wire                            ID_WB_TLB;
     wire                            ID_EXE_int;
     wire                            ID_MEM_int;
     wire                            ID_WB_int;
@@ -606,6 +610,10 @@ module mycpu_top (
     assign ID_MEM_CSR = ID_CSR_use & MEM_CSR_write & ID_CSR_number == MEM_CSR_write_number;
     assign ID_WB_CSR = ID_CSR_use & WB_CSR_write & ID_CSR_number == WB_CSR_write_number;
 
+    assign ID_EXE_TLB = ID_CSR_use & MEM_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
+    assign ID_MEM_TLB = ID_CSR_use & MEM_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
+    assign ID_WB_TLB = ID_CSR_use & WB_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
+
     assign ID_EXE_int = EXE_CSR_write &
                        (EXE_CSR_write_number == `CSR_CRMD | EXE_CSR_write_number == `CSR_ECFG |
                         EXE_CSR_write_number == `CSR_ECFG | EXE_CSR_write_number == `CSR_ESTAT |
@@ -626,6 +634,8 @@ module mycpu_top (
 
     assign ID_CSR_stall = EXE_valid & ID_EXE_CSR | MEM_valid & ID_MEM_CSR | WB_valid & ID_WB_CSR;
 
+    assign ID_TLB_stall = EXE_valid & ID_EXE_TLB | MEM_valid & ID_MEM_TLB | WB_valid & ID_WB_TLB;
+
     assign ID_int_stall = EXE_valid & ID_EXE_int | MEM_valid & ID_MEM_int | WB_valid & ID_WB_int;
 
     // TODO: delay memory write
@@ -640,7 +650,7 @@ module mycpu_top (
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
                          MEM_valid & (ID_MEM_GPR1_A | ID_MEM_GPR2_A) & MEM_GPR_new[`GPR_NEW_WB]);
 
-    assign ID_stall = ID_GPR_stall | ID_CSR_stall | ID_int_stall | ID_flush_stall;
+    assign ID_stall = ID_GPR_stall | ID_CSR_stall | ID_TLB_stall | ID_int_stall | ID_flush_stall;
 
     assign ID_done = ~ID_stall | |ID_exception;
 

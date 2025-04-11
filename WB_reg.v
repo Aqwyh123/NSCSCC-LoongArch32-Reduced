@@ -1,4 +1,4 @@
-`include "../../macros.h"
+`include "macros.h"
 
 module WB_reg (
     input  wire                            clk,

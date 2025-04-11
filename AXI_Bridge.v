@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module AXI_Bridge (
     input  wire        aclk,
@@ -122,7 +122,7 @@ module AXI_Bridge (
                             read_request_state <= ReadRequestBusy;
                             arid               <= `DATA_ARID;
                             araddr             <= data_sram_addr;
-                            arsize             <= data_sram_size;
+                            arsize             <= {1'b0, data_sram_size};
                             arvalid            <= 1'b1;
                         end
                     end else if (inst_sram_req & ~inst_sram_wr) begin
@@ -130,7 +130,7 @@ module AXI_Bridge (
                             read_request_state <= ReadRequestBusy;
                             arid               <= `INST_ARID;
                             araddr             <= inst_sram_addr;
-                            arsize             <= inst_sram_size;
+                            arsize             <= {1'b0, inst_sram_size};
                             arvalid            <= 1'b1;
                         end
                     end
@@ -157,7 +157,7 @@ module AXI_Bridge (
         if (reset) begin
             write_request_state <= WriteRequestIdle;
             awaddr              <= 32'h0;
-            awsize              <= 2'b00;
+            awsize              <= 3'b000;
             awvalid             <= 1'b0;
             wdata               <= 32'h0;
             wstrb               <= 4'h0;
@@ -169,7 +169,7 @@ module AXI_Bridge (
                     if (data_sram_req & data_sram_wr) begin
                         write_request_state <= WriteRequestBusy;
                         awaddr              <= data_sram_addr;
-                        awsize              <= data_sram_size;
+                        awsize              <= {1'b0, data_sram_size};
                         awvalid             <= 1'b1;
                         wdata               <= data_sram_wdata;
                         wstrb               <= data_sram_wstrb;

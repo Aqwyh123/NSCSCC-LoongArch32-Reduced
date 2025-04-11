@@ -1,4 +1,4 @@
-`include "../macros.h"
+`include "macros.h"
 
 module YDecoder (
     input  wire [2:0] y,

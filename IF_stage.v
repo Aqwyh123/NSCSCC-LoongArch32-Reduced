@@ -1,4 +1,4 @@
-`include "../../macros.h"
+`include "macros.h"
 
 module IF_stage (
     input  wire                        clk,
@@ -72,7 +72,7 @@ module IF_stage (
     assign pre_IF_done = inst_sram_req & inst_sram_addr_ok | |pre_IF_exception;
     assign pre_IF_to_IF_valid = pre_IF_done;
 
-    assign pre_IF_PC = IF_next_PC_is_PC ? IF_PC : IF_PC + 3'h4;
+    assign pre_IF_PC = IF_next_PC_is_PC ? IF_PC : IF_PC + 32'h4;
     assign pre_IF_ADEF = |pre_IF_PC[1:0];
     assign pre_IF_exception = {
         1'b0, pre_IF_TLBR, 6'b0, pre_IF_ADEF, 1'b0, pre_IF_PPI, 1'b0, pre_IF_PIF, 3'b0
@@ -86,7 +86,7 @@ module IF_stage (
     always @(posedge clk) begin
         if (reset) begin
             IF_valid <= 1'b0;
-            IF_PC <= `PC_INIT - 3'h4;  // trick: to make next PC be 0x1c000000 during reset
+            IF_PC <= `PC_INIT - 32'h4;  // trick: to make next PC be 0x1c000000 during reset
             IF_next_PC_is_PC <= 1'b0;
         end else begin
             if (flush) begin

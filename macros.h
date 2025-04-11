@@ -179,6 +179,7 @@
 `define CSR_PRMD_0_WIDTH 29
 
 `define CSR_ECFG 14'h0004
+`define CSR_ECFG_LIE 12:0
 `define CSR_ECFG_LIE_9_0 9:0
 `define CSR_ECFG_0_LO 10
 `define CSR_ECFG_LIE_12_11 12:11
@@ -187,6 +188,7 @@
 `define CSR_ECFG_0_HI_WIDTH 19
 
 `define CSR_ESTAT 14'h0005
+`define CSR_ESTAT_IS 12:0
 `define CSR_ESTAT_IS_1_0 1:0
 `define CSR_ESTAT_IS_9_2 9:2
 `define CSR_ESTAT_0_LO 10
