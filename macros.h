@@ -7,6 +7,17 @@
 
 `define PC_INIT 32'h1c000000
 
+// for cache
+`define DATA_NUM           256
+`define WAY_NUM            2
+`define INDEX_WIDTH        8
+`define TAG_WIDTH          20
+`define OFFSET_WIDTH       4
+`define DATA_WIDTH         32
+`define STRB_WIDTH         4
+`define AW                 $clog2(`DATA_NUM)
+`define CACHE_LINE_BANKS   4
+
 `define RD_MSB 4
 `define RD_LSB 0
 `define RJ_MSB 9
