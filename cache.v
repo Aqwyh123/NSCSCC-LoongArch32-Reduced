@@ -6,14 +6,14 @@ module cache (
     // CPU接口
     input  wire                     valid,
     input  wire                     op,
-    input  wire [ `INDEX_WIDTH-1:0] index,
-    input  wire [   `TAG_WIDTH-1:0] tag,
-    input  wire [`OFFSET_WIDTH-1:0] offset,
-    input  wire [  `STRB_WIDTH-1:0] wstrb,
-    input  wire [  `DATA_WIDTH-1:0] wdata,
+    input  wire [ `CACHE_INDEX_WIDTH-1:0] index,
+    input  wire [   `CACHE_TAG_WIDTH-1:0] tag,
+    input  wire [`CACHE_OFFSET_WIDTH-1:0] offset,
+    input  wire [  `CACHE_STRB_WIDTH-1:0] wstrb,
+    input  wire [  `CACHE_DATA_WIDTH-1:0] wdata,
     output wire                     addr_ok,
     output wire                     data_ok,
-    output wire [  `DATA_WIDTH-1:0] rdata,
+    output wire [  `CACHE_DATA_WIDTH-1:0] rdata,
     // AXI-like Mem接口
     output wire                     rd_req,
     output wire [              2:0] rd_type,
@@ -30,15 +30,15 @@ module cache (
     input  wire                     wr_rdy
 );
 
-    localparam AW = `AW;
-    localparam DATA_NUM = `DATA_NUM;
-    localparam WAY_NUM = `WAY_NUM;
+    localparam CACHE_AW = `CACHE_AW;
+    localparam CACHE_DATA_NUM = `CACHE_DATA_NUM;
+    localparam CACHE_WAY_NUM = `CACHE_WAY_NUM;
     localparam CACHE_LINE_BANKS = `CACHE_LINE_BANKS;
-    localparam TAG_WIDTH = `TAG_WIDTH;
-    localparam INDEX_WIDTH = `INDEX_WIDTH;
-    localparam OFFSET_WIDTH = `OFFSET_WIDTH;
-    localparam DATA_WIDTH = `DATA_WIDTH;
-    localparam STRB_WIDTH = `STRB_WIDTH;
+    localparam CACHE_TAG_WIDTH = `CACHE_TAG_WIDTH;
+    localparam CACHE_INDEX_WIDTH = `CACHE_INDEX_WIDTH;
+    localparam CACHE_OFFSET_WIDTH = `CACHE_OFFSET_WIDTH;
+    localparam CACHE_DATA_WIDTH = `CACHE_DATA_WIDTH;
+    localparam CACHE_STRB_WIDTH = `CACHE_STRB_WIDTH;
 
     // ========== 状态机定义 ==========
     localparam M_IDLE = 3'd0;
@@ -63,36 +63,36 @@ module cache (
     wire                    rdreq_lookup_rd;
     wire                    hitwrite_wr;
 
-    wire [ INDEX_WIDTH-1:0] replace_index;
+    wire [ CACHE_INDEX_WIDTH-1:0] replace_index;
     reg                     replace_way;
-    wire [   TAG_WIDTH-1:0] replace_tag;
+    wire [   CACHE_TAG_WIDTH-1:0] replace_tag;
     reg                     dirty_flag;
 
     // tagv/data SRAM接口信号
     wire                    tagv_rd;
     wire                    tagv_wr;
-    wire [          AW-1:0] tagv_index;
-    wire [     WAY_NUM-1:0] tagv_way;
-    wire [     TAG_WIDTH:0] tagv_d;
+    wire [          CACHE_AW-1:0] tagv_index;
+    wire [     CACHE_WAY_NUM-1:0] tagv_way;
+    wire [     CACHE_TAG_WIDTH:0] tagv_d;
 
     wire                    data_rd;
     wire                    data_wr;
-    wire [          AW-1:0] data_index;
-    wire [  STRB_WIDTH-1:0] data_wstrb;
-    wire [     WAY_NUM-1:0] data_way;
+    wire [          CACHE_AW-1:0] data_index;
+    wire [  CACHE_STRB_WIDTH-1:0] data_wstrb;
+    wire [     CACHE_WAY_NUM-1:0] data_way;
     wire [             1:0] data_offset;
-    wire [  DATA_WIDTH-1:0] data_d;
+    wire [  CACHE_DATA_WIDTH-1:0] data_d;
 
     // ====== 请求Buffer相关 ======
     reg  [            68:0] request_buf;
     wire                    req_buf_up_en;
     wire                    op_1d;
-    wire [ INDEX_WIDTH-1:0] index_1d;
-    wire [   TAG_WIDTH-1:0] tag_1d;
-    wire [OFFSET_WIDTH-1:0] offset_1d;
-    wire [  STRB_WIDTH-1:0] wstrb_1d;
-    wire [  DATA_WIDTH-1:0] wdata_1d;
-    reg  [  DATA_WIDTH-1:0] local_rdata;
+    wire [ CACHE_INDEX_WIDTH-1:0] index_1d;
+    wire [   CACHE_TAG_WIDTH-1:0] tag_1d;
+    wire [CACHE_OFFSET_WIDTH-1:0] offset_1d;
+    wire [  CACHE_STRB_WIDTH-1:0] wstrb_1d;
+    wire [  CACHE_DATA_WIDTH-1:0] wdata_1d;
+    reg  [  CACHE_DATA_WIDTH-1:0] local_rdata;
 
     // 读出请求Buffer分配
     assign op_1d     = request_buf[68];
@@ -105,11 +105,11 @@ module cache (
     // ====== 写命中Buffer相关 ======
     reg                     wbuf_vld;
     reg  [            49:0] write_buf;
-    wire [  DATA_WIDTH-1:0] wbuf_data;
-    wire [ INDEX_WIDTH-1:0] wbuf_index;
-    wire [OFFSET_WIDTH-1:0] wbuf_offset;
-    wire [  STRB_WIDTH-1:0] wbuf_strb;
-    wire [     WAY_NUM-1:0] wbuf_way;
+    wire [  CACHE_DATA_WIDTH-1:0] wbuf_data;
+    wire [ CACHE_INDEX_WIDTH-1:0] wbuf_index;
+    wire [CACHE_OFFSET_WIDTH-1:0] wbuf_offset;
+    wire [  CACHE_STRB_WIDTH-1:0] wbuf_strb;
+    wire [     CACHE_WAY_NUM-1:0] wbuf_way;
 
     assign {wbuf_data, wbuf_index, wbuf_offset, wbuf_strb, wbuf_way} = write_buf;
 
@@ -117,29 +117,29 @@ module cache (
     reg  [           1:0] return_cnt;
 
     // Dirty表
-    reg  [  DATA_NUM-1:0] d_table        [WAY_NUM-1:0];
+    reg  [  CACHE_DATA_NUM-1:0] d_table        [CACHE_WAY_NUM-1:0];
 
     // 伪随机替换
     reg                   rand_data;
 
     // ------ SRAM读写信号 ------
-    wire [DATA_WIDTH-1:0] sram_data_q    [WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire                  sram_data_rd   [WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire                  sram_data_wr   [WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire [STRB_WIDTH-1:0] sram_data_wstrb[WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire [        AW-1:0] sram_data_index[WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire [DATA_WIDTH-1:0] sram_data_d    [WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire [CACHE_DATA_WIDTH-1:0] sram_data_q    [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire                  sram_data_rd   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire                  sram_data_wr   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire [CACHE_STRB_WIDTH-1:0] sram_data_wstrb[CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire [        CACHE_AW-1:0] sram_data_index[CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire [CACHE_DATA_WIDTH-1:0] sram_data_d    [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
 
-    wire [   TAG_WIDTH:0] sram_tagv_q    [WAY_NUM-1:0];
-    wire                  sram_tagv_rd   [WAY_NUM-1:0];
-    wire                  sram_tagv_wr   [WAY_NUM-1:0];
-    wire [        AW-1:0] sram_tagv_index[WAY_NUM-1:0];
-    wire [   TAG_WIDTH:0] sram_tagv_d    [WAY_NUM-1:0];
+    wire [   CACHE_TAG_WIDTH:0] sram_tagv_q    [CACHE_WAY_NUM-1:0];
+    wire                  sram_tagv_rd   [CACHE_WAY_NUM-1:0];
+    wire                  sram_tagv_wr   [CACHE_WAY_NUM-1:0];
+    wire [        CACHE_AW-1:0] sram_tagv_index[CACHE_WAY_NUM-1:0];
+    wire [   CACHE_TAG_WIDTH:0] sram_tagv_d    [CACHE_WAY_NUM-1:0];
 
     // ===== 命中相关信号 =====
-    wire [ TAG_WIDTH-1:0] tag_sel        [WAY_NUM-1:0];
-    wire [   WAY_NUM-1:0] valid_sel;
-    wire [   WAY_NUM-1:0] tag_hit;
+    wire [ CACHE_TAG_WIDTH-1:0] tag_sel        [CACHE_WAY_NUM-1:0];
+    wire [   CACHE_WAY_NUM-1:0] valid_sel;
+    wire [   CACHE_WAY_NUM-1:0] tag_hit;
     wire                  req_hit;
 
     // 状态机控制
@@ -152,16 +152,16 @@ module cache (
     // 替换相关信号
     assign replace_rd      = (main_nst == M_REPLACE) && (main_st == M_MISS);
     assign replace_index   = index_1d;
-    assign replace_tag     = sram_tagv_q[replace_way][TAG_WIDTH:1];
+    assign replace_tag     = sram_tagv_q[replace_way][CACHE_TAG_WIDTH:1];
 
     // refill信号
     wire                   refill_wr;
-    wire [INDEX_WIDTH-1:0] refill_index;
-    wire [  TAG_WIDTH-1:0] refill_tag;
+    wire [CACHE_INDEX_WIDTH-1:0] refill_index;
+    wire [  CACHE_TAG_WIDTH-1:0] refill_tag;
     wire [            1:0] refill_bank;
-    wire [ STRB_WIDTH-1:0] refill_wstrb;
-    wire [ DATA_WIDTH-1:0] refill_data;
-    wire [    WAY_NUM-1:0] refill_way;
+    wire [ CACHE_STRB_WIDTH-1:0] refill_wstrb;
+    wire [ CACHE_DATA_WIDTH-1:0] refill_data;
+    wire [    CACHE_WAY_NUM-1:0] refill_way;
 
     assign refill_wr     = ret_valid;
     assign refill_index  = replace_index;
@@ -169,13 +169,13 @@ module cache (
     assign refill_bank   = return_cnt;
     assign refill_wstrb  = wstrb_1d;
     assign refill_data   = (op_1d && (refill_bank == offset_1d[3:2])) ? wdata_1d : ret_data;
-    assign refill_way    = (replace_way) ? {{(WAY_NUM - 1) {1'b0}}, 1'b1} : {1'b1, {(WAY_NUM - 1) {1'b0}}};
+    assign refill_way    = (replace_way) ? {{(CACHE_WAY_NUM - 1) {1'b0}}, 1'b1} : {1'b1, {(CACHE_WAY_NUM - 1) {1'b0}}};
 
     // tagv信号
     assign tagv_rd       = lookup_rd | replace_rd;
     assign tagv_wr       = refill_wr;
     assign tagv_index    = lookup_rd ? index : replace_rd ? replace_index : refill_index;
-    assign tagv_way      = lookup_rd ? {WAY_NUM{1'b1}} : replace_rd ? (1'b1 << replace_way) : refill_way;
+    assign tagv_way      = lookup_rd ? {CACHE_WAY_NUM{1'b1}} : replace_rd ? (1'b1 << replace_way) : refill_way;
     assign tagv_d        = {tag_1d, 1'b1};
 
     // data信号
@@ -193,8 +193,8 @@ module cache (
     // 读数据归并
     integer m;
     always @(*) begin
-        local_rdata = {DATA_WIDTH{1'b0}};
-        for (m = 0; m < WAY_NUM; m = m + 1) begin
+        local_rdata = {CACHE_DATA_WIDTH{1'b0}};
+        for (m = 0; m < CACHE_WAY_NUM; m = m + 1) begin
             if (tag_hit[m]) local_rdata = sram_data_q[m][offset_1d[3:2]];
         end
     end
@@ -250,8 +250,8 @@ module cache (
     reg [            3:0] wr_wstrb_reg;
     reg                   wr_req_reg;
 
-    reg [  TAG_WIDTH-1:0] replace_tag_reg;
-    reg [INDEX_WIDTH-1:0] replace_index_reg;
+    reg [  CACHE_TAG_WIDTH-1:0] replace_tag_reg;
+    reg [CACHE_INDEX_WIDTH-1:0] replace_index_reg;
     reg [          127:0] replace_data_reg;
     reg                   replace_tagval_vld;
 
@@ -264,7 +264,7 @@ module cache (
         end else begin
             // M_MISS进入M_MISS的那个周期采样
             if ((main_st == M_MISS) && (main_nst == M_MISS)) begin
-                replace_tag_reg    <= sram_tagv_q[rand_data][TAG_WIDTH:1];
+                replace_tag_reg    <= sram_tagv_q[rand_data][CACHE_TAG_WIDTH:1];
                 replace_index_reg  <= index_1d;
                 replace_data_reg   <= {sram_data_q[rand_data][3], sram_data_q[rand_data][2], sram_data_q[rand_data][1], sram_data_q[rand_data][0]};
                 replace_tagval_vld <= 1'b1;
@@ -307,7 +307,7 @@ module cache (
     // ========== Dirty表时序维护 ==========
     genvar i;
     generate
-        for (i = 0; i < WAY_NUM; i = i + 1) begin : DIRTY
+        for (i = 0; i < CACHE_WAY_NUM; i = i + 1) begin : DIRTY
             always @(posedge clk) begin
                 if (!resetn) d_table[i] <= 0;
                 else if (wbuf_vld && (wbuf_way == (1'b1 << i))) d_table[i][wbuf_index] <= 1'b1;
@@ -320,7 +320,7 @@ module cache (
     // ========== SRAM 交互(generate块) ==========
     genvar j;
     generate
-        for (i = 0; i < WAY_NUM; i = i + 1) begin : SRAM_WAY
+        for (i = 0; i < CACHE_WAY_NUM; i = i + 1) begin : SRAM_WAY
             // TAGV SRAM
             assign sram_tagv_rd[i]    = tagv_rd;
             assign sram_tagv_wr[i]    = tagv_wr & tagv_way[i];
@@ -344,7 +344,7 @@ module cache (
                 blk_mem_gen_data u_data_sram (
                     .clka (clk),
                     .ena  (sram_data_rd[i][j] | sram_data_wr[i][j]),
-                    .wea  (sram_data_wr[i][j] ? sram_data_wstrb[i][j] : {STRB_WIDTH{1'b0}}),
+                    .wea  (sram_data_wr[i][j] ? sram_data_wstrb[i][j] : {CACHE_STRB_WIDTH{1'b0}}),
                     .addra(sram_data_index[i][j]),
                     .dina (sram_data_d[i][j]),
                     .douta(sram_data_q[i][j])
@@ -355,8 +355,8 @@ module cache (
 
     // ========= 命中判定逻辑 =========
     generate
-        for (i = 0; i < WAY_NUM; i = i + 1) begin : HIT_TAG
-            assign tag_sel[i]   = sram_tagv_q[i][TAG_WIDTH:1];
+        for (i = 0; i < CACHE_WAY_NUM; i = i + 1) begin : HIT_TAG
+            assign tag_sel[i]   = sram_tagv_q[i][CACHE_TAG_WIDTH:1];
             assign valid_sel[i] = sram_tagv_q[i][0];
             assign tag_hit[i]   = (tag_1d == tag_sel[i]) && valid_sel[i];
         end
