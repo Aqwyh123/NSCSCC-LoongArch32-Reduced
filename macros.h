@@ -17,6 +17,7 @@
 `define CACHE_STRB_WIDTH         4
 `define CACHE_AW                 $clog2(`CACHE_DATA_NUM)
 `define CACHE_LINE_BANKS   4
+`define SRAM_SIZE_CACHE_LINE 2'b10
 
 `define RD_MSB 4
 `define RD_LSB 0

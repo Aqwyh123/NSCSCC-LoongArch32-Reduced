@@ -24,16 +24,12 @@ module IF_stage (
     input  wire                        pre_IF_PIF,
     input  wire                        pre_IF_PPI,
     input  wire                        pre_IF_TLBR,
-    // SRAM-like Bus
-    output wire                        inst_sram_req,
-    output wire                        inst_sram_wr,
-    output wire [                 1:0] inst_sram_size,
-    output wire [                31:0] inst_sram_addr,
-    output wire [                 3:0] inst_sram_wstrb,
-    output wire [                31:0] inst_sram_wdata,
-    input  wire                        inst_sram_addr_ok,
-    input  wire                        inst_sram_data_ok,
-    input  wire [                31:0] inst_sram_rdata,
+    // ICache interface
+    output wire                        icache_req_valid,
+    output wire [                31:0] icache_vaddr,
+    input  wire                        icache_addr_ok,
+    input  wire                        icache_data_ok,
+    input  wire [                31:0] icache_rdata,
     // data signals
     output wire [                31:0] PC,
     output wire [                31:0] inst,
@@ -62,31 +58,27 @@ module IF_stage (
     reg                         IF_TLBR;
     wire [`EXCEPTION_WIDTH-1:0] IF_exception;
 
-    reg                         inst_sram_data_ok_valid;
-    reg                         inst_sram_data_ok_temp;
-    reg  [                31:0] inst_sram_rdata_temp;
+    reg                         icache_data_ok_pending;
+    reg  [                31:0] icache_rdata_buffered;
 
-    assign flush = |exception | ereturn | refetch | bj_flush;
-    assign bj_flush = bj_taken & ~bj_stall;
+    assign flush              = |exception | ereturn | refetch | bj_flush;
+    assign bj_flush           = bj_taken & ~bj_stall;
 
-    assign pre_IF_done = inst_sram_req & inst_sram_addr_ok | |pre_IF_exception;
+    assign pre_IF_done        = (icache_req_valid & icache_addr_ok) | |pre_IF_exception;
     assign pre_IF_to_IF_valid = pre_IF_done;
 
-    assign pre_IF_PC = IF_next_PC_is_PC ? IF_PC : IF_PC + 32'h4;
-    assign pre_IF_ADEF = |pre_IF_PC[1:0];
-    assign pre_IF_exception = {
-        1'b0, pre_IF_TLBR, 6'b0, pre_IF_ADEF, 1'b0, pre_IF_PPI, 1'b0, pre_IF_PIF, 3'b0
-    };
+    assign pre_IF_PC          = IF_next_PC_is_PC ? IF_PC : IF_PC + 32'h4;
+    assign pre_IF_ADEF        = |pre_IF_PC[1:0];
+    assign pre_IF_exception   = {1'b0, pre_IF_TLBR, 6'b0, pre_IF_ADEF, 1'b0, pre_IF_PPI, 1'b0, pre_IF_PIF, 3'b0};
 
-    assign IF_ready = ~IF_valid | (IF_done & ID_ready);
-    assign IF_done = inst_sram_data_ok_valid & inst_sram_data_ok |
-                     inst_sram_data_ok_temp | |IF_exception;
-    assign IF_to_ID_valid = IF_valid & IF_done & ~bj_flush;
+    assign IF_ready           = ~IF_valid | (IF_done & ID_ready);
+    assign IF_done            = (IF_valid & icache_data_ok) | icache_data_ok_pending | |IF_exception;
+    assign IF_to_ID_valid     = IF_valid & IF_done & ~bj_flush;
 
     always @(posedge clk) begin
         if (reset) begin
-            IF_valid <= 1'b0;
-            IF_PC <= `PC_INIT - 32'h4;  // trick: to make next PC be 0x1c000000 during reset
+            IF_valid         <= 1'b0;
+            IF_PC            <= `PC_INIT - 32'h4;  // trick: to make next PC be 0x1c000000 during reset
             IF_next_PC_is_PC <= 1'b0;
         end else begin
             if (flush) begin
@@ -124,43 +116,29 @@ module IF_stage (
 
     always @(posedge clk) begin
         if (reset) begin
-            inst_sram_data_ok_valid <= 1'b1;
-        end else if (flush & IF_valid & ~IF_done) begin
-            inst_sram_data_ok_valid <= 1'b0;
-        end else if (inst_sram_data_ok) begin
-            inst_sram_data_ok_valid <= 1'b1;
-        end
-    end
-
-    always @(posedge clk) begin
-        if (reset) begin
-            inst_sram_data_ok_temp <= 1'b0;
-            inst_sram_rdata_temp   <= 32'h0;
+            icache_data_ok_pending <= 1'b0;
+            icache_rdata_buffered  <= 32'h0;
         end else if (flush) begin
-            inst_sram_data_ok_temp <= 1'b0;
-        end else if (inst_sram_data_ok_valid & inst_sram_data_ok & ~ID_ready) begin
-            inst_sram_data_ok_temp <= 1'b1;
-            inst_sram_rdata_temp   <= inst_sram_rdata;
-        end else if (ID_ready) begin
-            inst_sram_data_ok_temp <= 1'b0;
+            icache_data_ok_pending <= 1'b0;
+        end else if (IF_valid & icache_data_ok & ~ID_ready & ~bj_flush) begin
+            icache_data_ok_pending <= 1'b1;
+            icache_rdata_buffered  <= icache_rdata;
+        end else if (ID_ready | bj_flush) begin
+            icache_data_ok_pending <= 1'b0;
         end
     end
 
-    assign inst_fetch = 1'b1;
-    assign inst_vaddr = pre_IF_PC;
+    assign inst_vaddr       = pre_IF_PC;
 
-    assign inst_sram_req   = ~flush & ~|pre_IF_exception &
-                            (~IF_valid & inst_sram_data_ok_valid | (IF_done & ID_ready));
-    assign inst_sram_wr = 1'b0;
-    assign inst_sram_size = 2'b10;
-    assign inst_sram_addr = inst_paddr;
-    assign inst_sram_wstrb = 4'b0000;
-    assign inst_sram_wdata = 32'h0;
+    assign icache_vaddr     = pre_IF_PC;
+    assign inst_fetch       = ~flush & ~|pre_IF_exception & (~IF_valid | IF_ready);
 
-    assign PC = IF_PC;
-    assign inst = inst_sram_data_ok_temp ? inst_sram_rdata_temp : inst_sram_rdata;
-    assign PIF = IF_PIF;
-    assign PPI = IF_PPI;
-    assign ADEF = IF_ADEF;
-    assign TLBR = IF_TLBR;
+    assign icache_req_valid = inst_fetch;
+
+    assign PC               = IF_PC;
+    assign inst             = icache_data_ok_pending ? icache_rdata_buffered : icache_rdata;
+    assign PIF              = IF_PIF;
+    assign PPI              = IF_PPI;
+    assign ADEF             = IF_ADEF;
+    assign TLBR             = IF_TLBR;
 endmodule

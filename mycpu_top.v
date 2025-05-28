@@ -62,31 +62,11 @@ module mycpu_top (
     wire                            inst_fetch;
     wire [                    31:0] inst_vaddr;
     wire [                    31:0] inst_paddr;
-    // inst sram interface
-    wire                            inst_sram_req;
-    wire                            inst_sram_wr;
-    wire [                     1:0] inst_sram_size;
-    wire [                    31:0] inst_sram_addr;
-    wire [                     3:0] inst_sram_wstrb;
-    wire [                    31:0] inst_sram_wdata;
-    wire                            inst_sram_addr_ok;
-    wire                            inst_sram_data_ok;
-    wire [                    31:0] inst_sram_rdata;
     // data MMU signals
     wire                            data_load;
     wire                            data_store;
     wire [                    31:0] data_vaddr;
     wire [                    31:0] data_paddr;
-    // data sram interface
-    wire                            data_sram_req;
-    wire                            data_sram_wr;
-    wire [                     1:0] data_sram_size;
-    wire [                    31:0] data_sram_addr;
-    wire [                     3:0] data_sram_wstrb;
-    wire [                    31:0] data_sram_wdata;
-    wire                            data_sram_addr_ok;
-    wire                            data_sram_data_ok;
-    wire [                    31:0] data_sram_rdata;
 
     wire [                    31:0] PC;
     wire                            flush;
@@ -120,6 +100,50 @@ module mycpu_top (
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo0;
     wire [       `TLBELO_WIDTH-1:0] TLB_w_lo1;
     wire [$clog2(`TLB_ENTRIES)-1:0] TLB_f_index;
+
+    // ICache <-> IF 
+    wire                            ICache_req_valid_IF_to_ICache;
+    wire                            ICache_addr_ok_ICache_to_IF;
+    wire                            ICache_data_ok_ICache_to_IF;
+    wire [   `CACHE_DATA_WIDTH-1:0] ICache_rdata_ICache_to_IF;
+
+    // ICache <-> AXI Bridge
+    wire                            ICache_mem_rd_req;
+    wire [                     2:0] ICache_mem_rd_type;
+    wire [                    31:0] ICache_mem_rd_addr;
+    wire                            ICache_mem_rd_rdy;
+    wire                            ICache_mem_ret_valid;
+    wire                            ICache_mem_ret_last;
+    wire [                    31:0] ICache_mem_ret_data;
+
+    // DCache <-> EXE/MEM
+    wire                            DCache_req_valid_EXE_to_DCache;
+    wire                            DCache_op_EXE_to_DCache;
+    wire [  `CACHE_INDEX_WIDTH-1:0] DCache_index_EXE_to_DCache;
+    wire [    `CACHE_TAG_WIDTH-1:0] DCache_tag_EXE_to_DCache;
+    wire [ `CACHE_OFFSET_WIDTH-1:0] DCache_offset_EXE_to_DCache;
+    wire [   `CACHE_STRB_WIDTH-1:0] DCache_wstrb_EXE_to_DCache;
+    wire [   `CACHE_DATA_WIDTH-1:0] DCache_wdata_EXE_to_DCache;
+    wire                            DCache_addr_ok_DCache_to_EXE;
+    wire                            DCache_data_ok_DCache_to_MEM;
+    wire [   `CACHE_DATA_WIDTH-1:0] DCache_rdata_DCache_to_MEM;
+
+    // DCache <-> AXI Bridge
+    wire                            DCache_mem_rd_req;
+    wire [                     2:0] DCache_mem_rd_type;
+    wire [                    31:0] DCache_mem_rd_addr;
+    wire                            DCache_mem_rd_rdy;
+    wire                            DCache_mem_ret_valid;
+    wire                            DCache_mem_ret_last;
+    wire [                    31:0] DCache_mem_ret_data;
+
+    wire                            DCache_mem_wr_req;
+    wire [                     2:0] DCache_mem_wr_type;
+    wire [                    31:0] DCache_mem_wr_addr;
+    wire [                     3:0] DCache_mem_wr_wstrb;
+    wire [                   127:0] DCache_mem_wr_data;
+    wire                            DCache_mem_wr_rdy;
+    wire                            DCache_mem_wr_resp;
 
     wire                            pre_IF_PIF;
     wire                            pre_IF_PPI;
@@ -389,103 +413,181 @@ module mycpu_top (
     wire [    `TLB_OP_READ:`TLB_OP_SRCH] WB_CSR_TLB_operation;
     wire [`TLB_OP_WIDTH-1:`TLB_OP_WRITE] WB_TLB_TLB_operation;
 
+    wire                                 is_dcache_wr_line = DCache_mem_wr_req && (DCache_mem_wr_type == 3'b100);
+    wire                                 is_dcache_rd_line = ~DCache_mem_wr_req && (DCache_mem_rd_type == 3'b100);
+
     AXI_Bridge axi_bridge (
-        .aclk             (aclk),
-        .aresetn          (aresetn),
-        .clk              (clk),
-        .reset            (reset),
-        .inst_sram_req    (inst_sram_req),
-        .inst_sram_wr     (inst_sram_wr),
-        .inst_sram_size   (inst_sram_size),
-        .inst_sram_addr   (inst_sram_addr),
-        .inst_sram_wstrb  (inst_sram_wstrb),
-        .inst_sram_wdata  (inst_sram_wdata),
-        .inst_sram_addr_ok(inst_sram_addr_ok),
-        .inst_sram_data_ok(inst_sram_data_ok),
-        .inst_sram_rdata  (inst_sram_rdata),
-        .data_sram_req    (data_sram_req),
-        .data_sram_wr     (data_sram_wr),
-        .data_sram_size   (data_sram_size),
-        .data_sram_addr   (data_sram_addr),
-        .data_sram_wstrb  (data_sram_wstrb),
-        .data_sram_wdata  (data_sram_wdata),
-        .data_sram_addr_ok(data_sram_addr_ok),
-        .data_sram_data_ok(data_sram_data_ok),
-        .data_sram_rdata  (data_sram_rdata),
-        .arid             (arid),
-        .araddr           (araddr),
-        .arlen            (arlen),
-        .arsize           (arsize),
-        .arburst          (arburst),
-        .arlock           (arlock),
-        .arcache          (arcache),
-        .arprot           (arprot),
-        .arvalid          (arvalid),
-        .arready          (arready),
-        .rid              (rid),
-        .rdata            (rdata),
-        .rresp            (rresp),
-        .rlast            (rlast),
-        .rvalid           (rvalid),
-        .rready           (rready),
-        .awid             (awid),
-        .awaddr           (awaddr),
-        .awlen            (awlen),
-        .awsize           (awsize),
-        .awburst          (awburst),
-        .awlock           (awlock),
-        .awcache          (awcache),
-        .awprot           (awprot),
-        .awvalid          (awvalid),
-        .awready          (awready),
-        .wid              (wid),
-        .wdata            (wdata),
-        .wstrb            (wstrb),
-        .wlast            (wlast),
-        .wvalid           (wvalid),
-        .wready           (wready),
-        .bid              (bid),
-        .bresp            (bresp),
-        .bvalid           (bvalid),
-        .bready           (bready)
+        .aclk                (aclk),
+        .aresetn             (aresetn),
+        .clk                 (clk),
+        .reset               (reset),
+        // ICache
+        .inst_sram_req       (ICache_mem_rd_req),
+        .inst_sram_rd_type   (ICache_mem_rd_type),
+        .inst_sram_addr      (ICache_mem_rd_addr),
+        .inst_sram_addr_ok   (ICache_mem_rd_rdy),     // "ready"
+        .inst_sram_data_ok   (ICache_mem_ret_valid),  // "valid"
+        .inst_sram_rdata     (ICache_mem_ret_data),
+        .inst_sram_ret_last  (ICache_mem_ret_last),
+        // DCache
+        .data_sram_rd_req    (DCache_mem_rd_req),
+        .data_sram_rd_type   (DCache_mem_rd_type),
+        .data_sram_rd_addr   (DCache_mem_rd_addr),
+        .data_sram_rd_addr_ok(DCache_mem_rd_rdy),
+        .data_sram_ret_valid (DCache_mem_ret_valid),
+        .data_sram_rdata     (DCache_mem_ret_data),
+        .data_sram_ret_last  (DCache_mem_ret_last),
+        .data_sram_wr_req    (DCache_mem_wr_req),
+        .data_sram_wr_type   (DCache_mem_wr_type),
+        .data_sram_wr_addr   (DCache_mem_wr_addr),
+        .data_sram_wr_wstrb  (DCache_mem_wr_wstrb),
+        .data_sram_wr_data   (DCache_mem_wr_data),
+        .data_sram_wr_addr_ok(DCache_mem_wr_rdy),
+        .data_sram_wr_resp   (DCache_mem_wr_resp),
+        // AXI总线原有端口保持不变
+        .arid                (arid),
+        .araddr              (araddr),
+        .arlen               (arlen),
+        .arsize              (arsize),
+        .arburst             (arburst),
+        .arlock              (arlock),
+        .arcache             (arcache),
+        .arprot              (arprot),
+        .arvalid             (arvalid),
+        .arready             (arready),
+        .rid                 (rid),
+        .rdata               (rdata),
+        .rresp               (rresp),
+        .rlast               (rlast),
+        .rvalid              (rvalid),
+        .rready              (rready),
+        .awid                (awid),
+        .awaddr              (awaddr),
+        .awlen               (awlen),
+        .awsize              (awsize),
+        .awburst             (awburst),
+        .awlock              (awlock),
+        .awcache             (awcache),
+        .awprot              (awprot),
+        .awvalid             (awvalid),
+        .awready             (awready),
+        .wid                 (wid),
+        .wdata               (wdata),
+        .wstrb               (wstrb),
+        .wlast               (wlast),
+        .wvalid              (wvalid),
+        .wready              (wready),
+        .bid                 (bid),
+        .bresp               (bresp),
+        .bvalid              (bvalid),
+        .bready              (bready)
     );
 
+    wire [`CACHE_STRB_WIDTH-1:0] data_sram_wstrb_from_EXE;
+    wire [`CACHE_DATA_WIDTH-1:0] data_sram_wdata_from_EXE;
+
+    assign DCache_req_valid_EXE_to_DCache = EXE_valid & (data_load | data_store) & ~|EXE_exception & MEM_ready;
+    assign DCache_op_EXE_to_DCache        = data_store;
+    assign DCache_index_EXE_to_DCache     = data_vaddr[`CACHE_INDEX_WIDTH+`CACHE_OFFSET_WIDTH-1:`CACHE_OFFSET_WIDTH];
+    assign DCache_tag_EXE_to_DCache       = data_paddr[31:`CACHE_INDEX_WIDTH+`CACHE_OFFSET_WIDTH];
+    assign DCache_offset_EXE_to_DCache    = data_vaddr[`CACHE_OFFSET_WIDTH-1:0];
+    assign DCache_wstrb_EXE_to_DCache     = data_sram_wstrb_from_EXE;
+    assign DCache_wdata_EXE_to_DCache     = data_sram_wdata_from_EXE;
+
+    cache dcache (
+        .clk   (clk),
+        .resetn(~reset),
+
+        // from EXE/MEM
+        .valid  (DCache_req_valid_EXE_to_DCache),
+        .op     (DCache_op_EXE_to_DCache),
+        .index  (DCache_index_EXE_to_DCache),
+        .tag    (DCache_tag_EXE_to_DCache),
+        .offset (DCache_offset_EXE_to_DCache),
+        .wstrb  (DCache_wstrb_EXE_to_DCache),
+        .wdata  (DCache_wdata_EXE_to_DCache),
+        .addr_ok(DCache_addr_ok_DCache_to_EXE),
+        .data_ok(DCache_data_ok_DCache_to_MEM),
+        .rdata  (DCache_rdata_DCache_to_MEM),
+
+        // to AXI Bridge
+        .rd_req   (DCache_mem_rd_req),
+        .rd_type  (DCache_mem_rd_type),
+        .rd_addr  (DCache_mem_rd_addr),
+        .rd_rdy   (DCache_mem_rd_rdy),
+        .ret_valid(DCache_mem_ret_valid),
+        .ret_last ({1'b0, DCache_mem_ret_last}),
+        .ret_data (DCache_mem_ret_data),
+        .wr_req   (DCache_mem_wr_req),
+        .wr_type  (DCache_mem_wr_type),
+        .wr_addr  (DCache_mem_wr_addr),
+        .wr_wstrb (DCache_mem_wr_wstrb),
+        .wr_data  (DCache_mem_wr_data),
+        .wr_rdy   (DCache_mem_wr_rdy)
+    );
+
+    cache icache (
+        .clk   (clk),
+        .resetn(~reset),
+
+        // IF_stage <-> ICache
+        .valid  (ICache_req_valid_IF_to_ICache),
+        .op     (1'b0),
+        .index  (inst_vaddr[11:4]),
+        .tag    (inst_paddr[31:12]),
+        .offset (inst_vaddr[3:0]),
+        .wstrb  ({`CACHE_STRB_WIDTH{1'b1}}),
+        .wdata  (`CACHE_DATA_WIDTH'b0),
+        .addr_ok(ICache_addr_ok_ICache_to_IF),
+        .data_ok(ICache_data_ok_ICache_to_IF),
+        .rdata  (ICache_rdata_ICache_to_IF),
+
+        // ICache <-> AXI_Bridge
+        .rd_req   (ICache_mem_rd_req),
+        .rd_type  (ICache_mem_rd_type),
+        .rd_addr  (ICache_mem_rd_addr),
+        .rd_rdy   (ICache_mem_rd_rdy),
+        .ret_valid(ICache_mem_ret_valid),
+        .ret_last ({1'b0, ICache_mem_ret_last}),
+        .ret_data (ICache_mem_ret_data),
+        .wr_rdy   (1'b0)
+    );
+
+
     IF_stage if_stage (
-        .clk              (clk),
-        .reset            (reset),
-        .exception        (exception),
-        .ereturn          (ereturn),
-        .refetch          (refetch),
-        .eentry           (eentry),
-        .eraddr           (eraddr),
-        .rentry           (rentry),
-        .rsource          (rsource),
-        .bj_taken         (ID_bj_taken),
-        .bj_stall         (ID_bj_stall),
-        .bj_target        (ID_target_PC),
-        .ID_ready         (ID_ready),
-        .IF_to_ID_valid   (IF_to_ID_valid),
-        .inst_fetch       (inst_fetch),
-        .inst_vaddr       (inst_vaddr),
-        .inst_paddr       (inst_paddr),
-        .pre_IF_PIF       (pre_IF_PIF),
-        .pre_IF_PPI       (pre_IF_PPI),
-        .pre_IF_TLBR      (pre_IF_TLBR),
-        .inst_sram_req    (inst_sram_req),
-        .inst_sram_wr     (inst_sram_wr),
-        .inst_sram_size   (inst_sram_size),
-        .inst_sram_addr   (inst_sram_addr),
-        .inst_sram_wstrb  (inst_sram_wstrb),
-        .inst_sram_wdata  (inst_sram_wdata),
-        .inst_sram_addr_ok(inst_sram_addr_ok),
-        .inst_sram_data_ok(inst_sram_data_ok),
-        .inst_sram_rdata  (inst_sram_rdata),
-        .PC               (IF_PC),
-        .inst             (IF_inst),
-        .PIF              (IF_PIF),
-        .PPI              (IF_PPI),
-        .ADEF             (IF_ADEF),
-        .TLBR             (IF_TLBR)
+        .clk           (clk),
+        .reset         (reset),
+        .exception     (exception),
+        .ereturn       (ereturn),
+        .refetch       (refetch),
+        .eentry        (eentry),
+        .eraddr        (eraddr),
+        .rentry        (rentry),
+        .rsource       (rsource),
+        .bj_taken      (ID_bj_taken),
+        .bj_stall      (ID_bj_stall),
+        .bj_target     (ID_target_PC),
+        .ID_ready      (ID_ready),
+        .IF_to_ID_valid(IF_to_ID_valid),
+        .inst_fetch    (inst_fetch),
+        .inst_vaddr    (inst_vaddr),
+        .inst_paddr    (inst_paddr),
+        .pre_IF_PIF    (pre_IF_PIF),
+        .pre_IF_PPI    (pre_IF_PPI),
+        .pre_IF_TLBR   (pre_IF_TLBR),
+
+        // ICache interface
+        .icache_req_valid(ICache_req_valid_IF_to_ICache),  // Output
+        .icache_addr_ok  (ICache_addr_ok_ICache_to_IF),    // Input
+        .icache_data_ok  (ICache_data_ok_ICache_to_IF),    // Input
+        .icache_rdata    (ICache_rdata_ICache_to_IF),      // Input
+
+        .PC  (IF_PC),
+        .inst(IF_inst),
+        .PIF (IF_PIF),
+        .PPI (IF_PPI),
+        .ADEF(IF_ADEF),
+        .TLBR(IF_TLBR)
     );
 
     // assign IF_exception = {1'b0, IF_TLBR, 6'b0, IF_ADEF, 1'b0, IF_PPI, 1'b0, IF_PIF, 3'b0}
@@ -566,40 +668,17 @@ module mycpu_top (
         .write_data  (WB_GPR_write_data)
     );
 
-    assign ID_rj_data = EXE_valid & ID_EXE_GPR1_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
-                        MEM_valid & ID_MEM_GPR1_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
-                        MEM_forward_data : ID_GPR_read_data1;
-    assign ID_rkd_data = EXE_valid & ID_EXE_GPR2_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data :
-                         MEM_valid & ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
-                         MEM_forward_data : ID_GPR_read_data2;
+    assign ID_rj_data = EXE_valid & ID_EXE_GPR1_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data : MEM_valid & ID_MEM_GPR1_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ? MEM_forward_data : ID_GPR_read_data1;
+    assign ID_rkd_data = EXE_valid & ID_EXE_GPR2_A & EXE_GPR_new[`GPR_NEW_EXE] ? EXE_forward_data : MEM_valid & ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ? MEM_forward_data : ID_GPR_read_data2;
 
     assign ID_INT = request & ~ID_int_stall;
 
-    assign ID_exception = {
-        1'b0,
-        ID_IF_TLBR,
-        1'b0,
-        ID_INE,
-        ID_BRK,
-        ID_SYS,
-        2'b0,
-        ID_ADEF,
-        1'b0,
-        ID_IF_PPI,
-        1'b0,
-        IF_PIF,
-        2'b0,
-        ID_INT
-    };
+    assign ID_exception = {1'b0, ID_IF_TLBR, 1'b0, ID_INE, ID_BRK, ID_SYS, 2'b0, ID_ADEF, 1'b0, ID_IF_PPI, 1'b0, IF_PIF, 2'b0, ID_INT};
 
-    assign ID_EXE_GPR1_A = |EXE_GPR_write_num & EXE_GPR_write &
-                            ID_GPR_read_num1 == EXE_GPR_write_num;
-    assign ID_EXE_GPR2_A = |EXE_GPR_write_num & EXE_GPR_write &
-                            ID_GPR_read_num2 == EXE_GPR_write_num;
-    assign ID_MEM_GPR1_A = |MEM_GPR_write_num & MEM_GPR_write &
-                            ID_GPR_read_num1 == MEM_GPR_write_num;
-    assign ID_MEM_GPR2_A = |MEM_GPR_write_num & MEM_GPR_write &
-                            ID_GPR_read_num2 == MEM_GPR_write_num;
+    assign ID_EXE_GPR1_A = |EXE_GPR_write_num & EXE_GPR_write & ID_GPR_read_num1 == EXE_GPR_write_num;
+    assign ID_EXE_GPR2_A = |EXE_GPR_write_num & EXE_GPR_write & ID_GPR_read_num2 == EXE_GPR_write_num;
+    assign ID_MEM_GPR1_A = |MEM_GPR_write_num & MEM_GPR_write & ID_GPR_read_num1 == MEM_GPR_write_num;
+    assign ID_MEM_GPR2_A = |MEM_GPR_write_num & MEM_GPR_write & ID_GPR_read_num2 == MEM_GPR_write_num;
 
     assign ID_EXE_GPR1_T = ID_GPR1_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
     assign ID_EXE_GPR2_T = ID_GPR2_use & |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM];
@@ -622,15 +701,9 @@ module mycpu_top (
                        (MEM_CSR_write_number == `CSR_CRMD| MEM_CSR_write_number == `CSR_ECFG |
                         MEM_CSR_write_number == `CSR_ECFG | MEM_CSR_write_number == `CSR_ESTAT |
                         MEM_CSR_write_number == `CSR_TCFG  | MEM_CSR_write_number == `CSR_TICLR);
-    assign ID_WB_int  = WB_CSR_write &
-                       (WB_CSR_write_number == `CSR_CRMD | WB_CSR_write_number == `CSR_ECFG |
-                        WB_CSR_write_number == `CSR_ECFG | WB_CSR_write_number == `CSR_ESTAT |
-                        WB_CSR_write_number == `CSR_TCFG | WB_CSR_write_number == `CSR_TICLR);
+    assign ID_WB_int = WB_CSR_write & (WB_CSR_write_number == `CSR_CRMD | WB_CSR_write_number == `CSR_ECFG | WB_CSR_write_number == `CSR_ECFG | WB_CSR_write_number == `CSR_ESTAT | WB_CSR_write_number == `CSR_TCFG | WB_CSR_write_number == `CSR_TICLR);
 
-    assign ID_GPR_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T |
-                                       ID_EXE_GPR2_A & ID_EXE_GPR2_T) |
-                          MEM_valid & (ID_MEM_GPR1_A & ID_MEM_GPR1_T |
-                                       ID_MEM_GPR2_A & ID_MEM_GPR2_T);
+    assign ID_GPR_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T | ID_EXE_GPR2_A & ID_EXE_GPR2_T) | MEM_valid & (ID_MEM_GPR1_A & ID_MEM_GPR1_T | ID_MEM_GPR2_A & ID_MEM_GPR2_T);
 
     assign ID_CSR_stall = EXE_valid & ID_EXE_CSR | MEM_valid & ID_MEM_CSR | WB_valid & ID_WB_CSR;
 
@@ -639,8 +712,7 @@ module mycpu_top (
     assign ID_int_stall = EXE_valid & ID_EXE_int | MEM_valid & ID_MEM_int | WB_valid & ID_WB_int;
 
     // TODO: delay memory write
-    assign ID_flush_stall = EXE_valid & (|EXE_exception | EXE_ereturn | EXE_refetch) |
-                            MEM_valid & (|MEM_exception | MEM_ereturn | MEM_refetch);
+    assign ID_flush_stall = EXE_valid & (|EXE_exception | EXE_ereturn | EXE_refetch) | MEM_valid & (|MEM_exception | MEM_ereturn | MEM_refetch);
 
     assign ID_bj_stall = ID_valid & ID_jump & (EXE_valid & ID_EXE_GPR1_A &
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
@@ -751,13 +823,9 @@ module mycpu_top (
         .data_vaddr       (data_vaddr),
         .data_paddr       (data_paddr),
         .exception        (EXE_exception),
-        .data_sram_req    (data_sram_req),
-        .data_sram_wr     (data_sram_wr),
-        .data_sram_size   (data_sram_size),
-        .data_sram_addr   (data_sram_addr),
-        .data_sram_wstrb  (data_sram_wstrb),
-        .data_sram_wdata  (data_sram_wdata),
-        .data_sram_addr_ok(data_sram_addr_ok),
+        .data_sram_wstrb  (data_sram_wstrb_from_EXE),
+        .data_sram_wdata  (data_sram_wdata_from_EXE),
+        .data_sram_addr_ok(DCache_addr_ok_DCache_to_EXE),
         .PC               (EXE_PC),
         .imm              (EXE_imm),
         .rj_data          (EXE_rj_data),
@@ -783,28 +851,9 @@ module mycpu_top (
         .product     (MEM_mul_result)
     );
 
-    assign EXE_exception = {
-        EXE_TLBR,
-        EXE_IF_TLBR,
-        1'b0,
-        EXE_INE,
-        EXE_BRK,
-        EXE_SYS,
-        EXE_ALE,
-        1'b0,
-        EXE_ADEF,
-        EXE_PPI,
-        EXE_IF_PPI,
-        EXE_PME,
-        EXE_PIF,
-        EXE_PIS,
-        EXE_PIL,
-        EXE_INT
-    };
+    assign EXE_exception    = {EXE_TLBR, EXE_IF_TLBR, 1'b0, EXE_INE, EXE_BRK, EXE_SYS, EXE_ALE, 1'b0, EXE_ADEF, EXE_PPI, EXE_IF_PPI, EXE_PME, EXE_PIF, EXE_PIS, EXE_PIL, EXE_INT};
 
-    assign EXE_forward_data = {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LINK]}} & EXE_link |
-                              {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LUI]}} & EXE_imm |
-                              {32{EXE_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & EXE_CSR_result;
+    assign EXE_forward_data = {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LINK]}} & EXE_link | {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LUI]}} & EXE_imm | {32{EXE_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & EXE_CSR_result;
 
     MEM_reg mem_reg (
         .clk                 (clk),
@@ -905,8 +954,8 @@ module mycpu_top (
     MEM_stage mem_stage (
         .done             (MEM_done),
         .exception        (MEM_exception),
-        .data_sram_data_ok(data_sram_data_ok),
-        .data_sram_rdata  (data_sram_rdata),
+        .data_sram_data_ok(DCache_data_ok_DCache_to_MEM),
+        .data_sram_rdata  (DCache_rdata_DCache_to_MEM),
         .ALU_operation    (MEM_ALU_operation),
         .mul_result       (MEM_mul_result),
         .EXE_ALU_result   (MEM_EXE_ALU_result),
@@ -916,27 +965,9 @@ module mycpu_top (
         .MEM_result       (MEM_MEM_result)
     );
 
-    assign MEM_exception = {
-        MEM_EXE_TLBR,
-        MEM_IF_TLBR,
-        1'b0,
-        MEM_INE,
-        MEM_BRK,
-        MEM_SYS,
-        MEM_ALE,
-        1'b0,
-        MEM_ADEF,
-        MEM_EXE_PPI,
-        MEM_IF_PPI,
-        MEM_PME,
-        MEM_PIF,
-        MEM_PIS,
-        MEM_PIL,
-        MEM_INT
-    };
+    assign MEM_exception    = {MEM_EXE_TLBR, MEM_IF_TLBR, 1'b0, MEM_INE, MEM_BRK, MEM_SYS, MEM_ALE, 1'b0, MEM_ADEF, MEM_EXE_PPI, MEM_IF_PPI, MEM_PME, MEM_PIF, MEM_PIS, MEM_PIL, MEM_INT};
 
-    assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & MEM_CSR_result |
-                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result;
+    assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & MEM_CSR_result | {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result;
 
     WB_reg wb_reg (
         .clk                 (clk),
@@ -1048,24 +1079,7 @@ module mycpu_top (
         .TLB_TLB_operation(WB_TLB_TLB_operation)
     );
 
-    assign WB_exception = {
-        WB_EXE_TLBR,
-        WB_IF_TLBR,
-        1'b0,
-        WB_INE,
-        WB_BRK,
-        WB_SYS,
-        WB_ALE,
-        1'b0,
-        WB_ADEF,
-        WB_EXE_PPI,
-        WB_IF_PPI,
-        WB_PME,
-        WB_PIF,
-        WB_PIS,
-        WB_PIL,
-        WB_INT
-    };
+    assign WB_exception = {WB_EXE_TLBR, WB_IF_TLBR, 1'b0, WB_INE, WB_BRK, WB_SYS, WB_ALE, 1'b0, WB_ADEF, WB_EXE_PPI, WB_IF_PPI, WB_PME, WB_PIF, WB_PIS, WB_PIL, WB_INT};
 
     // assign WB_forward_data   = WB_GPR_write_data;
 

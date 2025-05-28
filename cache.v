@@ -1,33 +1,33 @@
 `include "macros.h"
 
 module cache (
-    input  wire                     clk,
-    input  wire                     resetn,
+    input  wire                           clk,
+    input  wire                           resetn,
     // CPU接口
-    input  wire                     valid,
-    input  wire                     op,
+    input  wire                           valid,
+    input  wire                           op,
     input  wire [ `CACHE_INDEX_WIDTH-1:0] index,
     input  wire [   `CACHE_TAG_WIDTH-1:0] tag,
     input  wire [`CACHE_OFFSET_WIDTH-1:0] offset,
     input  wire [  `CACHE_STRB_WIDTH-1:0] wstrb,
     input  wire [  `CACHE_DATA_WIDTH-1:0] wdata,
-    output wire                     addr_ok,
-    output wire                     data_ok,
+    output wire                           addr_ok,
+    output wire                           data_ok,
     output wire [  `CACHE_DATA_WIDTH-1:0] rdata,
     // AXI-like Mem接口
-    output wire                     rd_req,
-    output wire [              2:0] rd_type,
-    output wire [             31:0] rd_addr,
-    input  wire                     rd_rdy,
-    input  wire                     ret_valid,
-    input  wire [              1:0] ret_last,
-    input  wire [             31:0] ret_data,
-    output wire                     wr_req,
-    output wire [              2:0] wr_type,
-    output wire [             31:0] wr_addr,
-    output wire [              3:0] wr_wstrb,
-    output wire [            127:0] wr_data,
-    input  wire                     wr_rdy
+    output wire                           rd_req,
+    output wire [                    2:0] rd_type,
+    output wire [                   31:0] rd_addr,
+    input  wire                           rd_rdy,
+    input  wire                           ret_valid,
+    input  wire [                    1:0] ret_last,
+    input  wire [                   31:0] ret_data,
+    output wire                           wr_req,
+    output wire [                    2:0] wr_type,
+    output wire [                   31:0] wr_addr,
+    output wire [                    3:0] wr_wstrb,
+    output wire [                  127:0] wr_data,
+    input  wire                           wr_rdy
 );
 
     localparam CACHE_AW = `CACHE_AW;
@@ -49,44 +49,44 @@ module cache (
     localparam H_IDLE = 1'b0;
     localparam H_WRITE = 1'b1;
 
-    reg  [             2:0] main_st;
-    reg  [             2:0] main_nst;
-    reg                     hit_st;
-    reg                     hit_nst;
+    reg  [                   2:0] main_st;
+    reg  [                   2:0] main_nst;
+    reg                           hit_st;
+    reg                           hit_nst;
 
     // 其他控制与请求信号
-    wire                    wr_op;
-    wire                    rd_op;
-    wire                    rd_conflict;
-    wire                    replace_rd;
-    wire                    lookup_rd;
-    wire                    rdreq_lookup_rd;
-    wire                    hitwrite_wr;
+    wire                          wr_op;
+    wire                          rd_op;
+    wire                          rd_conflict;
+    wire                          replace_rd;
+    wire                          lookup_rd;
+    wire                          rdreq_lookup_rd;
+    wire                          hitwrite_wr;
 
     wire [ CACHE_INDEX_WIDTH-1:0] replace_index;
-    reg                     replace_way;
+    reg                           replace_way;
     wire [   CACHE_TAG_WIDTH-1:0] replace_tag;
-    reg                     dirty_flag;
+    reg                           dirty_flag;
 
     // tagv/data SRAM接口信号
-    wire                    tagv_rd;
-    wire                    tagv_wr;
+    wire                          tagv_rd;
+    wire                          tagv_wr;
     wire [          CACHE_AW-1:0] tagv_index;
     wire [     CACHE_WAY_NUM-1:0] tagv_way;
     wire [     CACHE_TAG_WIDTH:0] tagv_d;
 
-    wire                    data_rd;
-    wire                    data_wr;
+    wire                          data_rd;
+    wire                          data_wr;
     wire [          CACHE_AW-1:0] data_index;
     wire [  CACHE_STRB_WIDTH-1:0] data_wstrb;
     wire [     CACHE_WAY_NUM-1:0] data_way;
-    wire [             1:0] data_offset;
+    wire [                   1:0] data_offset;
     wire [  CACHE_DATA_WIDTH-1:0] data_d;
 
     // ====== 请求Buffer相关 ======
-    reg  [            68:0] request_buf;
-    wire                    req_buf_up_en;
-    wire                    op_1d;
+    reg  [                  68:0] request_buf;
+    wire                          req_buf_up_en;
+    wire                          op_1d;
     wire [ CACHE_INDEX_WIDTH-1:0] index_1d;
     wire [   CACHE_TAG_WIDTH-1:0] tag_1d;
     wire [CACHE_OFFSET_WIDTH-1:0] offset_1d;
@@ -103,8 +103,8 @@ module cache (
     assign wdata_1d  = request_buf[31:0];
 
     // ====== 写命中Buffer相关 ======
-    reg                     wbuf_vld;
-    reg  [            49:0] write_buf;
+    reg                           wbuf_vld;
+    reg  [                  49:0] write_buf;
     wire [  CACHE_DATA_WIDTH-1:0] wbuf_data;
     wire [ CACHE_INDEX_WIDTH-1:0] wbuf_index;
     wire [CACHE_OFFSET_WIDTH-1:0] wbuf_offset;
@@ -114,25 +114,25 @@ module cache (
     assign {wbuf_data, wbuf_index, wbuf_offset, wbuf_strb, wbuf_way} = write_buf;
 
     // Refill计数
-    reg  [           1:0] return_cnt;
+    reg  [                 1:0] return_cnt;
 
     // Dirty表
     reg  [  CACHE_DATA_NUM-1:0] d_table        [CACHE_WAY_NUM-1:0];
 
     // 伪随机替换
-    reg                   rand_data;
+    reg                         rand_data;
 
     // ------ SRAM读写信号 ------
     wire [CACHE_DATA_WIDTH-1:0] sram_data_q    [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire                  sram_data_rd   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
-    wire                  sram_data_wr   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire                        sram_data_rd   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
+    wire                        sram_data_wr   [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
     wire [CACHE_STRB_WIDTH-1:0] sram_data_wstrb[CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
     wire [        CACHE_AW-1:0] sram_data_index[CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
     wire [CACHE_DATA_WIDTH-1:0] sram_data_d    [CACHE_WAY_NUM-1:0] [CACHE_LINE_BANKS-1:0];
 
     wire [   CACHE_TAG_WIDTH:0] sram_tagv_q    [CACHE_WAY_NUM-1:0];
-    wire                  sram_tagv_rd   [CACHE_WAY_NUM-1:0];
-    wire                  sram_tagv_wr   [CACHE_WAY_NUM-1:0];
+    wire                        sram_tagv_rd   [CACHE_WAY_NUM-1:0];
+    wire                        sram_tagv_wr   [CACHE_WAY_NUM-1:0];
     wire [        CACHE_AW-1:0] sram_tagv_index[CACHE_WAY_NUM-1:0];
     wire [   CACHE_TAG_WIDTH:0] sram_tagv_d    [CACHE_WAY_NUM-1:0];
 
@@ -140,7 +140,7 @@ module cache (
     wire [ CACHE_TAG_WIDTH-1:0] tag_sel        [CACHE_WAY_NUM-1:0];
     wire [   CACHE_WAY_NUM-1:0] valid_sel;
     wire [   CACHE_WAY_NUM-1:0] tag_hit;
-    wire                  req_hit;
+    wire                        req_hit;
 
     // 状态机控制
     assign wr_op           = valid & op;
@@ -155,10 +155,10 @@ module cache (
     assign replace_tag     = sram_tagv_q[replace_way][CACHE_TAG_WIDTH:1];
 
     // refill信号
-    wire                   refill_wr;
+    wire                         refill_wr;
     wire [CACHE_INDEX_WIDTH-1:0] refill_index;
     wire [  CACHE_TAG_WIDTH-1:0] refill_tag;
-    wire [            1:0] refill_bank;
+    wire [                  1:0] refill_bank;
     wire [ CACHE_STRB_WIDTH-1:0] refill_wstrb;
     wire [ CACHE_DATA_WIDTH-1:0] refill_data;
     wire [    CACHE_WAY_NUM-1:0] refill_way;
@@ -182,7 +182,7 @@ module cache (
     assign data_rd       = rdreq_lookup_rd | replace_rd;
     assign data_wr       = refill_wr | hitwrite_wr;
     assign data_index    = rdreq_lookup_rd ? index : replace_rd ? replace_index : refill_wr ? refill_index : wbuf_index;
-    assign data_wstrb    = refill_wr ? refill_wstrb : wbuf_strb;
+    assign data_wstrb    = refill_wr ? {CACHE_STRB_WIDTH{1'b1}} : wbuf_strb;
     assign data_offset   = refill_wr ? refill_bank : wbuf_offset[3:2];
     assign data_way      = refill_wr ? refill_way : wbuf_way;
     assign data_d        = refill_wr ? refill_data : wbuf_data;
@@ -200,7 +200,7 @@ module cache (
     end
 
     // 冲突检测
-    assign rd_conflict = wbuf_vld && (offset == offset_1d);
+    assign rd_conflict = wbuf_vld;
 
     // ========== always 块/时序逻辑部分 ==========
 
@@ -224,7 +224,7 @@ module cache (
     // 随机替换
     always @(posedge clk) begin
         if (!resetn) rand_data <= 1'b0;
-        else if (main_st == M_LOOKUP && main_nst == M_MISS) rand_data <= ~rand_data;
+        else rand_data <= $random;
     end
 
     // miss/replace/dirty记录
@@ -244,16 +244,16 @@ module cache (
     end
 
     // 写回及读出AXI接口相关
-    reg [          127:0] wr_data_reg;
-    reg [           31:0] wr_addr_reg;
-    reg [            2:0] wr_type_reg;
-    reg [            3:0] wr_wstrb_reg;
-    reg                   wr_req_reg;
+    reg [                127:0] wr_data_reg;
+    reg [                 31:0] wr_addr_reg;
+    reg [                  2:0] wr_type_reg;
+    reg [                  3:0] wr_wstrb_reg;
+    reg                         wr_req_reg;
 
     reg [  CACHE_TAG_WIDTH-1:0] replace_tag_reg;
     reg [CACHE_INDEX_WIDTH-1:0] replace_index_reg;
-    reg [          127:0] replace_data_reg;
-    reg                   replace_tagval_vld;
+    reg [                127:0] replace_data_reg;
+    reg                         replace_tagval_vld;
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -282,7 +282,9 @@ module cache (
             wr_type_reg  <= 3'b100;
             wr_wstrb_reg <= 4'b1111;
             wr_req_reg   <= 1'b1;
-        end else if (wr_rdy) wr_req_reg <= 1'b0;
+        end else if (wr_rdy && wr_req_reg) begin
+            wr_req_reg <= 1'b0;
+        end
     end
 
     assign wr_req   = wr_req_reg;
@@ -341,10 +343,12 @@ module cache (
                 assign sram_data_wstrb[i][j] = data_wstrb;
                 assign sram_data_index[i][j] = data_index;
                 assign sram_data_d[i][j]     = data_d;
+                assign sram_data_ena[i][j]   = sram_data_rd[i][j] | sram_data_wr[i][j];
+                assign sram_data_wea[i][j]   = sram_data_wr[i][j] ? sram_data_wstrb[i][j] : {CACHE_STRB_WIDTH{1'b0}};
                 blk_mem_gen_data u_data_sram (
                     .clka (clk),
-                    .ena  (sram_data_rd[i][j] | sram_data_wr[i][j]),
-                    .wea  (sram_data_wr[i][j] ? sram_data_wstrb[i][j] : {CACHE_STRB_WIDTH{1'b0}}),
+                    .ena  (sram_data_ena[i][j]),
+                    .wea  (sram_data_wea[i][j]),
                     .addra(sram_data_index[i][j]),
                     .dina (sram_data_d[i][j]),
                     .douta(sram_data_q[i][j])
@@ -352,6 +356,9 @@ module cache (
             end
         end
     endgenerate
+
+    wire                        sram_data_ena[CACHE_WAY_NUM-1:0][CACHE_LINE_BANKS-1:0];
+    wire [CACHE_STRB_WIDTH-1:0] sram_data_wea[CACHE_WAY_NUM-1:0][CACHE_LINE_BANKS-1:0];
 
     // ========= 命中判定逻辑 =========
     generate
@@ -392,7 +399,7 @@ module cache (
     end
 
     // ========== Output信号 ==========
-    assign addr_ok = (main_st == M_IDLE) || (main_st == M_LOOKUP && main_nst == M_LOOKUP);
+    assign addr_ok = ((main_st == M_IDLE) && !wbuf_vld && !rd_conflict) || ((main_st == M_LOOKUP) && (main_nst == M_LOOKUP));
 
     assign data_ok = (main_st == M_LOOKUP && req_hit) || (main_st == M_LOOKUP && op_1d) || (main_st == M_REFILL && !op_1d && ret_valid && (return_cnt == offset_1d[3:2]));
 
