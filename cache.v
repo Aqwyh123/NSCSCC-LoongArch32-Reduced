@@ -27,7 +27,9 @@ module cache (
     output wire [                   31:0] wr_addr,
     output wire [                    3:0] wr_wstrb,
     output wire [                  127:0] wr_data,
-    input  wire                           wr_rdy
+    input  wire                           wr_rdy,
+    input  wire                           i_access_type,
+    input  wire [                    2:0] op_size
 );
 
     localparam CACHE_AW = `CACHE_AW;
@@ -66,7 +68,6 @@ module cache (
     wire [ CACHE_INDEX_WIDTH-1:0] replace_index;
     reg                           replace_way;
     wire [   CACHE_TAG_WIDTH-1:0] replace_tag;
-    reg                           dirty_flag;
 
     // tagv/data SRAM接口信号
     wire                          tagv_rd;
@@ -84,9 +85,11 @@ module cache (
     wire [  CACHE_DATA_WIDTH-1:0] data_d;
 
     // ====== 请求Buffer相关 ======
-    reg  [                  68:0] request_buf;
+    reg  [                  72:0] request_buf;
     wire                          req_buf_up_en;
     wire                          op_1d;
+    wire                          access_type_1d;
+    wire [                   2:0] req_op_size_1d;
     wire [ CACHE_INDEX_WIDTH-1:0] index_1d;
     wire [   CACHE_TAG_WIDTH-1:0] tag_1d;
     wire [CACHE_OFFSET_WIDTH-1:0] offset_1d;
@@ -95,12 +98,14 @@ module cache (
     reg  [  CACHE_DATA_WIDTH-1:0] local_rdata;
 
     // 读出请求Buffer分配
-    assign op_1d     = request_buf[68];
-    assign index_1d  = request_buf[67:60];
-    assign tag_1d    = request_buf[59:40];
-    assign offset_1d = request_buf[39:36];
-    assign wstrb_1d  = request_buf[35:32];
-    assign wdata_1d  = request_buf[31:0];
+    assign op_1d          = request_buf[72];
+    assign access_type_1d = request_buf[71];
+    assign req_op_size_1d = request_buf[70:68];
+    assign index_1d       = request_buf[67:60];
+    assign tag_1d         = request_buf[59:40];
+    assign offset_1d      = request_buf[39:36];
+    assign wstrb_1d       = request_buf[35:32];
+    assign wdata_1d       = request_buf[31:0];
 
     // ====== 写命中Buffer相关 ======
     reg                           wbuf_vld;
@@ -145,7 +150,7 @@ module cache (
     // 状态机控制
     assign wr_op           = valid & op;
     assign rd_op           = valid & !op;
-    assign rdreq_lookup_rd = (main_nst == M_LOOKUP) && rd_op;
+    assign rdreq_lookup_rd = (main_nst == M_LOOKUP);
     assign lookup_rd       = (main_nst == M_LOOKUP);
     assign hitwrite_wr     = wbuf_vld;
 
@@ -173,14 +178,14 @@ module cache (
 
     // tagv信号
     assign tagv_rd       = lookup_rd | replace_rd;
-    assign tagv_wr       = refill_wr;
+    assign tagv_wr       = refill_wr && access_type_1d;
     assign tagv_index    = lookup_rd ? index : replace_rd ? replace_index : refill_index;
     assign tagv_way      = lookup_rd ? {CACHE_WAY_NUM{1'b1}} : replace_rd ? (1'b1 << replace_way) : refill_way;
     assign tagv_d        = {tag_1d, 1'b1};
 
     // data信号
     assign data_rd       = rdreq_lookup_rd | replace_rd;
-    assign data_wr       = refill_wr | hitwrite_wr;
+    assign data_wr       = (refill_wr && access_type_1d) || hitwrite_wr;
     assign data_index    = rdreq_lookup_rd ? index : replace_rd ? replace_index : refill_wr ? refill_index : wbuf_index;
     assign data_wstrb    = refill_wr ? {CACHE_STRB_WIDTH{1'b1}} : wbuf_strb;
     assign data_offset   = refill_wr ? refill_bank : wbuf_offset[3:2];
@@ -206,8 +211,8 @@ module cache (
 
     // 请求Buffer
     always @(posedge clk) begin
-        if (!resetn) request_buf <= 69'b0;
-        else if (req_buf_up_en) request_buf <= {op, index, tag, offset, wstrb, wdata};
+        if (!resetn) request_buf <= 73'b0;
+        else if (req_buf_up_en) request_buf <= {op, i_access_type, op_size, index, tag, offset, wstrb, wdata};
     end
 
     // 写命中buffer逻辑
@@ -231,80 +236,99 @@ module cache (
     always @(posedge clk) begin
         if (!resetn) replace_way <= 1'b0;
         else if ((main_st == M_LOOKUP) && (main_nst == M_MISS)) begin
-            replace_way <= rand_data;
-            dirty_flag  <= d_table[rand_data][index_1d];
-        end
-    end
-
-    // refill计数
-    always @(posedge clk) begin
-        if (!resetn) return_cnt <= 0;
-        else if (ret_valid && ret_last[0]) return_cnt <= 0;
-        else if (ret_valid && !ret_last[0]) return_cnt <= return_cnt + 1'b1;
-    end
-
-    // 写回及读出AXI接口相关
-    reg [                127:0] wr_data_reg;
-    reg [                 31:0] wr_addr_reg;
-    reg [                  2:0] wr_type_reg;
-    reg [                  3:0] wr_wstrb_reg;
-    reg                         wr_req_reg;
-
-    reg [  CACHE_TAG_WIDTH-1:0] replace_tag_reg;
-    reg [CACHE_INDEX_WIDTH-1:0] replace_index_reg;
-    reg [                127:0] replace_data_reg;
-    reg                         replace_tagval_vld;
-
-    always @(posedge clk) begin
-        if (!resetn) begin
-            replace_tag_reg    <= 0;
-            replace_index_reg  <= 0;
-            replace_data_reg   <= 0;
-            replace_tagval_vld <= 1'b0;
-        end else begin
-            // M_MISS进入M_MISS的那个周期采样
-            if ((main_st == M_MISS) && (main_nst == M_MISS)) begin
-                replace_tag_reg    <= sram_tagv_q[rand_data][CACHE_TAG_WIDTH:1];
-                replace_index_reg  <= index_1d;
-                replace_data_reg   <= {sram_data_q[rand_data][3], sram_data_q[rand_data][2], sram_data_q[rand_data][1], sram_data_q[rand_data][0]};
-                replace_tagval_vld <= 1'b1;
+            if (!access_type_1d && |tag_hit) begin
+                replace_way <= tag_hit[1];
             end else begin
-                replace_tagval_vld <= 1'b0;
+                replace_way <= rand_data;
             end
         end
     end
 
+    wire evict_line_is_dirty = d_table[replace_way][index_1d];
+
+    // refill计数
     always @(posedge clk) begin
-        if (!resetn) wr_req_reg <= 1'b0;
-        else if ((main_st == M_MISS) && (main_nst == M_REPLACE)) begin
-            wr_data_reg  <= replace_data_reg;
-            wr_addr_reg  <= {replace_tag_reg, replace_index_reg, 4'b0};
-            wr_type_reg  <= 3'b100;
-            wr_wstrb_reg <= 4'b1111;
-            wr_req_reg   <= 1'b1;
-        end else if (wr_rdy && wr_req_reg) begin
-            wr_req_reg <= 1'b0;
+        if (!resetn) begin
+            return_cnt <= 2'b0;
+        end else if ((main_st == M_MISS && main_nst == M_REFILL) || (main_st == M_REPLACE && main_nst == M_REFILL)) begin
+            return_cnt <= 2'b0;
+        end else if (main_st == M_REFILL && ret_valid) begin
+            if (ret_last[0]) begin
+                return_cnt <= 2'b0;
+            end else begin
+                return_cnt <= return_cnt + 1'b1;
+            end
         end
     end
 
-    assign wr_req   = wr_req_reg;
-    assign wr_data  = wr_data_reg;
-    assign wr_addr  = wr_addr_reg;
-    assign wr_type  = wr_type_reg;
-    assign wr_wstrb = wr_wstrb_reg;
+    // 写回及读出AXI接口相关
+    reg [127:0] wr_data_reg;
+    reg [ 31:0] wr_addr_reg;
+    reg [  2:0] wr_type_reg;
+    reg [  3:0] wr_wstrb_reg;
+    reg         wr_req_reg;
+
+    always @(posedge clk) begin
+        if (!resetn) begin
+            wr_req_reg <= 1'b0;
+        end else begin
+            if ((main_st == M_MISS) && evict_line_is_dirty && wr_rdy) begin
+                if (!wr_req_reg) begin
+                    wr_data_reg  <= {sram_data_q[replace_way][3], sram_data_q[replace_way][2], sram_data_q[replace_way][1], sram_data_q[replace_way][0]};
+                    wr_addr_reg  <= {sram_tagv_q[replace_way][CACHE_TAG_WIDTH:1], index_1d, 4'b0};
+                    wr_type_reg  <= 3'b100;
+                    wr_wstrb_reg <= 4'b1111;
+                    wr_req_reg   <= 1'b1;
+                end
+            end
+            if (wr_rdy && wr_req_reg) begin
+                if (!suc_wr_req_reg) begin
+                    wr_req_reg <= 1'b0;
+                end
+            end
+        end
+    end
+
+    assign wr_req   = wr_req_reg || suc_wr_req_reg;
+    assign wr_type  = suc_wr_req_reg ? suc_wr_type_reg : wr_type_reg;
+    assign wr_addr  = suc_wr_req_reg ? suc_wr_addr_reg : wr_addr_reg;
+    assign wr_data  = suc_wr_req_reg ? suc_wr_data_reg : wr_data_reg;
+    assign wr_wstrb = suc_wr_req_reg ? suc_wr_wstrb_reg : wr_wstrb_reg;
 
     // refill读AXI信号
-    assign rd_addr  = {refill_tag, refill_index, 4'b0};
-    assign rd_type  = 3'b100;
+    assign rd_addr  = access_type_1d ? {refill_tag, refill_index, 4'b0} : {tag_1d, index_1d, offset_1d[3:0]};
+    assign rd_type  = access_type_1d ? 3'b100 : req_op_size_1d;
 
-    reg rd_req_r;
+    assign rd_req   = main_st == M_REPLACE && !wr_req && wr_rdy;
+
+    reg         suc_wr_req_reg;
+    reg [  2:0] suc_wr_type_reg;
+    reg [ 31:0] suc_wr_addr_reg;
+    reg [  3:0] suc_wr_wstrb_reg;
+    reg [127:0] suc_wr_data_reg;
+
     always @(posedge clk) begin
-        if (!resetn) rd_req_r <= 1'b0;
-        else if ((main_st == M_MISS) && (!dirty_flag)) rd_req_r <= 1'b1;
-        else if (main_st == M_REPLACE) rd_req_r <= 1'b1;
-        else rd_req_r <= 1'b0;
+        if (!resetn) begin
+            suc_wr_req_reg   <= 1'b0;
+            suc_wr_type_reg  <= 3'b0;
+            suc_wr_addr_reg  <= 32'b0;
+            suc_wr_wstrb_reg <= 4'b0;
+            suc_wr_data_reg  <= 128'b0;
+        end else if ((main_st == M_MISS) && !access_type_1d && op_1d && !suc_wr_req_reg) begin
+            suc_wr_req_reg   <= 1'b1;
+            suc_wr_type_reg  <= req_op_size_1d;
+            suc_wr_addr_reg  <= {tag_1d, index_1d, offset_1d[3:0]};
+            suc_wr_wstrb_reg <= wstrb_1d;
+            case (offset_1d[3:2])
+                2'b00: suc_wr_data_reg <= {96'b0, wdata_1d};
+                2'b01: suc_wr_data_reg <= {64'b0, wdata_1d, 32'b0};
+                2'b10: suc_wr_data_reg <= {32'b0, wdata_1d, 64'b0};
+                2'b11: suc_wr_data_reg <= {wdata_1d, 96'b0};
+            endcase
+        end else if (wr_rdy && suc_wr_req_reg) begin
+            suc_wr_req_reg <= 1'b0;
+        end
     end
-    assign rd_req = rd_req_r;
 
     // ========== Dirty表时序维护 ==========
     genvar i;
@@ -313,8 +337,8 @@ module cache (
             always @(posedge clk) begin
                 if (!resetn) d_table[i] <= 0;
                 else if (wbuf_vld && (wbuf_way == (1'b1 << i))) d_table[i][wbuf_index] <= 1'b1;
-                else if ((main_st == M_REFILL) && (replace_way == i) && op_1d) d_table[i][refill_index] <= 1'b1;
-                else if ((main_st == M_REFILL) && (replace_way == i) && !op_1d) d_table[i][refill_index] <= 1'b0;
+                else if ((main_st == M_REFILL) && (data_way[i]) && op_1d && access_type_1d) d_table[i][refill_index] <= 1'b1;
+                else if ((main_st == M_REFILL) && (data_way[i]) && !op_1d && access_type_1d) d_table[i][refill_index] <= 1'b0;
             end
         end
     endgenerate
@@ -368,14 +392,14 @@ module cache (
             assign tag_hit[i]   = (tag_1d == tag_sel[i]) && valid_sel[i];
         end
     endgenerate
-    assign req_hit = |tag_hit;
+    assign req_hit = |tag_hit & access_type_1d;
 
     // ========== 主状态机 ==========
     always @(*) begin
         case (main_st)
             M_IDLE:    main_nst = (wr_op || (rd_op && !rd_conflict)) ? M_LOOKUP : M_IDLE;
-            M_LOOKUP:  main_nst = (!req_hit) ? M_MISS : (!valid || (rd_op && rd_conflict)) ? M_IDLE : M_LOOKUP;
-            M_MISS:    main_nst = (!dirty_flag) ? (rd_rdy ? M_REFILL : M_MISS) : (wr_rdy ? M_REPLACE : M_MISS);
+            M_LOOKUP:  main_nst = (!req_hit || !access_type_1d) ? M_MISS : (!valid || (rd_op && rd_conflict)) ? M_IDLE : M_LOOKUP;
+            M_MISS:    main_nst = (evict_line_is_dirty) ? (wr_rdy ? M_REPLACE : M_MISS) : M_REPLACE;
             M_REPLACE: main_nst = (rd_rdy ? M_REFILL : M_REPLACE);
             M_REFILL:  main_nst = ((ret_valid && ret_last[0]) ? M_IDLE : M_REFILL);
             default:   main_nst = M_IDLE;
@@ -389,8 +413,21 @@ module cache (
     // 命中状态机
     always @(*) begin
         case (hit_st)
-            H_IDLE:  hit_nst = (main_st == M_LOOKUP && req_hit && op_1d) ? H_WRITE : H_IDLE;
-            H_WRITE: hit_nst = (main_st == M_LOOKUP && req_hit && op_1d) ? H_WRITE : H_IDLE;
+            H_IDLE: begin
+                if (main_st == M_LOOKUP && req_hit && op_1d) begin
+                    hit_nst = H_WRITE;
+                end else begin
+                    hit_nst = H_IDLE;
+                end
+            end
+            H_WRITE: begin
+                if (main_st == M_LOOKUP && req_hit && op_1d) begin
+                    hit_nst = H_WRITE;
+                end else begin
+                    hit_nst = H_IDLE;
+                end
+            end
+            default: hit_nst = H_IDLE;
         endcase
     end
     always @(posedge clk) begin
@@ -401,7 +438,7 @@ module cache (
     // ========== Output信号 ==========
     assign addr_ok = ((main_st == M_IDLE) && !wbuf_vld && !rd_conflict) || ((main_st == M_LOOKUP) && (main_nst == M_LOOKUP));
 
-    assign data_ok = (main_st == M_LOOKUP && req_hit) || (main_st == M_LOOKUP && op_1d) || (main_st == M_REFILL && !op_1d && ret_valid && (return_cnt == offset_1d[3:2]));
+    assign data_ok = (main_st == M_LOOKUP && req_hit) || (main_st == M_LOOKUP && op_1d) || (main_st == M_REFILL && !op_1d && ret_valid && (access_type_1d ? (return_cnt == offset_1d[3:2]) : 1'b1));
 
     assign rdata   = (main_st == M_LOOKUP && req_hit) ? local_rdata : ret_data;
 

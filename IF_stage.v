@@ -77,12 +77,12 @@ module IF_stage (
 
     always @(posedge clk) begin
         if (reset) begin
-            IF_valid         <= 1'b0;
-            IF_PC            <= `PC_INIT - 32'h4;  // trick: to make next PC be 0x1c000000 during reset
-            IF_next_PC_is_PC <= 1'b0;
+            IF_valid              <= 1'b0;
+            IF_PC                 <= `PC_INIT - 32'h4;  // trick: to make next PC be 0x1c000000 during reset
+            IF_next_PC_is_PC      <= 1'b0;
         end else begin
             if (flush) begin
-                IF_valid <= 1'b0;
+                IF_valid              <= 1'b0;
             end else if (IF_ready) begin
                 IF_valid <= pre_IF_to_IF_valid;
             end
@@ -102,12 +102,12 @@ module IF_stage (
                 IF_PC            <= bj_target;
                 IF_next_PC_is_PC <= 1'b1;
             end else if (pre_IF_to_IF_valid & IF_ready) begin
-                IF_PC            <= pre_IF_PC;
-                IF_next_PC_is_PC <= 1'b0;
-                IF_PIF           <= pre_IF_PIF;
-                IF_PPI           <= pre_IF_PPI;
-                IF_ADEF          <= pre_IF_ADEF;
-                IF_TLBR          <= pre_IF_TLBR;
+                IF_PC                 <= pre_IF_PC;
+                IF_next_PC_is_PC      <= 1'b0;
+                IF_PIF                <= pre_IF_PIF;
+                IF_PPI                <= pre_IF_PPI;
+                IF_ADEF               <= pre_IF_ADEF;
+                IF_TLBR               <= pre_IF_TLBR;
             end
         end
     end
@@ -128,17 +128,17 @@ module IF_stage (
         end
     end
 
-    assign inst_vaddr       = pre_IF_PC;
+    assign inst_vaddr            = pre_IF_PC;
 
-    assign icache_vaddr     = pre_IF_PC;
-    assign inst_fetch       = ~flush & ~|pre_IF_exception & (~IF_valid | IF_ready);
+    assign icache_vaddr          = pre_IF_PC;
+    assign inst_fetch            = ~flush & (~IF_valid | IF_ready);
 
-    assign icache_req_valid = inst_fetch;
+    assign icache_req_valid      = inst_fetch;
 
-    assign PC               = IF_PC;
-    assign inst             = icache_data_ok_pending ? icache_rdata_buffered : icache_rdata;
-    assign PIF              = IF_PIF;
-    assign PPI              = IF_PPI;
-    assign ADEF             = IF_ADEF;
-    assign TLBR             = IF_TLBR;
+    assign PC                    = IF_PC;
+    assign inst                  = icache_data_ok_pending ? icache_rdata_buffered : icache_rdata;
+    assign PIF                   = IF_PIF;
+    assign PPI                   = IF_PPI;
+    assign ADEF                  = IF_ADEF;
+    assign TLBR                  = IF_TLBR;
 endmodule

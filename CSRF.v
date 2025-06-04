@@ -49,7 +49,12 @@ module CSRF #(
     input  wire [                     31:0] vaddr,
     output wire [                     31:0] eentry,
     output wire [                     31:0] eraddr,
-    output wire [                     31:0] rentry
+    output wire [                     31:0] rentry,
+    // MAT outputs
+    output wire [                      1:0] crmd_datf_o,
+    output wire [                      1:0] crmd_datm_o,
+    output wire [                      1:0] dmw0_mat_o,
+    output wire [                      1:0] dmw1_mat_o
 );
     reg  [               31:0] CRMD;
     reg  [               31:0] PRMD;
@@ -472,4 +477,9 @@ module CSRF #(
     assign eentry   = EENTRY;
     assign eraddr   = ERA;
     assign rentry   = TLBRENTRY;
+
+    assign crmd_datf_o = CRMD[`CSR_CRMD_DATF];
+    assign crmd_datm_o = CRMD[`CSR_CRMD_DATM];
+    assign dmw0_mat_o  = DMW[0][`CSR_DMW_MAT];
+    assign dmw1_mat_o  = DMW[1][`CSR_DMW_MAT];
 endmodule

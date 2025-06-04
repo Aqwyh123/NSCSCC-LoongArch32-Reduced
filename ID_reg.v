@@ -24,27 +24,35 @@ module ID_reg (
     output reg         ID_PIF,
     output reg         ID_IF_PPI,
     output reg         ID_ADEF,
-    output reg         ID_IF_TLBR
+    output reg         ID_IF_TLBR,
+    input  wire [ 2:0] id_op_size_i,
+    output wire [ 2:0] id_op_size_o
 );
-    assign ID_ready        = ~ID_valid | (ID_done & EXE_ready);
-    assign ID_to_EXE_valid = ID_valid & ID_done;
+    reg [2:0] id_op_size_q;
+
+    assign ID_ready              = ~ID_valid | (ID_done & EXE_ready);
+    assign ID_to_EXE_valid       = ID_valid & ID_done;
+    assign id_op_size_o          = id_op_size_q;
 
     always @(posedge clk) begin
         if (reset) begin
-            ID_valid <= 1'b0;
+            ID_valid              <= 1'b0;
+            id_op_size_q          <= 3'b0;
         end else if (flush) begin
-            ID_valid <= 1'b0;
+            ID_valid              <= 1'b0;
+            id_op_size_q          <= 3'b0;
         end else begin
             if (ID_ready) begin
                 ID_valid <= IF_to_ID_valid;
             end
             if (IF_to_ID_valid & ID_ready) begin
-                ID_PC      <= IF_PC;
-                ID_inst    <= IF_inst;
-                ID_PIF     <= IF_PIF;
-                ID_IF_PPI  <= IF_PPI;
-                ID_ADEF    <= IF_ADEF;
-                ID_IF_TLBR <= IF_TLBR;
+                ID_PC                 <= IF_PC;
+                ID_inst               <= IF_inst;
+                ID_PIF                <= IF_PIF;
+                ID_IF_PPI             <= IF_PPI;
+                ID_ADEF               <= IF_ADEF;
+                ID_IF_TLBR            <= IF_TLBR;
+                id_op_size_q          <= id_op_size_i;
             end
         end
     end
