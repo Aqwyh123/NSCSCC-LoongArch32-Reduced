@@ -41,7 +41,9 @@ module ID_stage (
     output wire                            SYS,
     output wire                            BRK,
     output wire                            INE,
-    output wire [                     2:0] ID_op_size
+    output wire [                     2:0] ID_op_size,
+    output wire                            is_cacop,
+    output wire [                     4:0] cacop_code
 );
     wire                            branch_reverse;
     wire [     `OFFS_SRC_WIDTH-1:0] offs_src;
@@ -96,7 +98,9 @@ module ID_stage (
         .GPR1_use           (GPR1_use),
         .GPR2_use           (GPR2_use),
         .GPR_new            (GPR_new),
-        .CSR_use            (CSR_use)
+        .CSR_use            (CSR_use),
+        .is_cacop           (is_cacop),
+        .cacop_code         (cacop_code)
     );
 
     assign GPR_read_num1 = rj;

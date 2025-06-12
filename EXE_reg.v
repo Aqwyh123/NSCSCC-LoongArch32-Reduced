@@ -50,6 +50,8 @@ module EXE_reg (
     input  wire                            ID_BRK,
     input  wire                            ID_INE,
     input  wire                            ID_IF_TLBR,
+    input  wire                            ID_is_cacop,
+    input  wire [                     4:0] ID_cacop_code,
     input  wire                            mmu_data_access_type_i,
     output reg  [                    31:0] EXE_PC,
 `ifdef CHIPLAB
@@ -89,6 +91,8 @@ module EXE_reg (
     output reg                             EXE_INE,
     output reg                             EXE_IF_TLBR,
     output wire                            exe_data_access_type_o,
+    output reg                             EXE_is_cacop,
+    output reg  [                     4:0] EXE_cacop_code,
     input  wire [                     2:0] id_op_size_i,
     output wire [                     2:0] exe_op_size_o
 );
@@ -105,10 +109,14 @@ module EXE_reg (
             EXE_valid              <= 1'b0;
             exe_data_access_type_q <= 1'b1;
             exe_op_size_q          <= 3'b0;
+            EXE_cacop_code         <= 5'b0;
+            EXE_is_cacop           <= 1'b0;
         end else if (flush) begin
             EXE_valid              <= 1'b0;
             exe_data_access_type_q <= 1'b1;
             exe_op_size_q          <= 3'b0;
+            EXE_cacop_code         <= 5'b0;
+            EXE_is_cacop           <= 1'b0;
         end else begin
             if (EXE_ready) begin
                 EXE_valid <= ID_to_EXE_valid;
@@ -153,6 +161,8 @@ module EXE_reg (
                 EXE_IF_TLBR            <= ID_IF_TLBR;
                 exe_data_access_type_q <= mmu_data_access_type_i;
                 exe_op_size_q          <= id_op_size_i;
+                EXE_is_cacop           <= ID_is_cacop;
+                EXE_cacop_code         <= ID_cacop_code;
             end
         end
     end

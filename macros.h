@@ -662,4 +662,18 @@
 
 `define BGEU_31_26 6'b011011
 
+`define CACOP_31_22 10'b0000011000
+
+`define CACOP_OP_TYPE_MSB 4
+`define CACOP_OP_TYPE_LSB 3
+`define CACOP_TARGET_CACHE_MSB 2
+`define CACOP_TARGET_CACHE_LSB 0
+
+`define CACOP_TARGET_ICACHE 3'b000
+`define CACOP_TARGET_DCACHE 3'b001
+
+`define CACOP_TYPE_STORE_TAG 2'b00 // Init / Store Tag
+`define CACOP_TYPE_INDEX_OP  2'b01 // Index Invalidate / Writeback
+`define CACOP_TYPE_HIT_OP    2'b10 // Hit Invalidate / Writeback
+
 `endif
