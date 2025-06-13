@@ -7,18 +7,6 @@
 
 `define PC_INIT 32'h1c000000
 
-// for cache
-`define CACHE_DATA_NUM           256
-`define CACHE_WAY_NUM            2
-`define CACHE_INDEX_WIDTH        8
-`define CACHE_TAG_WIDTH          20
-`define CACHE_OFFSET_WIDTH       4
-`define CACHE_DATA_WIDTH         32
-`define CACHE_STRB_WIDTH         4
-`define CACHE_AW                 $clog2(`CACHE_DATA_NUM)
-`define CACHE_LINE_BANKS   4
-`define SRAM_SIZE_CACHE_LINE 2'b10
-
 `define RD_MSB 4
 `define RD_LSB 0
 `define RJ_MSB 9
@@ -123,6 +111,15 @@
 `define TLB_OP_INV 10:4
 `define TLB_INVOP_WIDTH 7
 
+`define CACHE_TARGET_WIDTH 2
+`define CACHE_TARGET_ICACHE 0
+`define CACHE_TARGET_DCACHE 1
+
+`define CACHE_OP_WIDTH 3
+`define CACHE_OP_STORE_TAG 0
+`define CACHE_OP_INDEX_OP 1
+`define CACHE_OP_HIT_OP 2
+
 `ifdef CHIPLAB
 `define TLB_ENTRIES 32
 `else
@@ -152,6 +149,18 @@
 `define TLBELO_MAT 3:2
 `define TLBELO_PLV 5:4
 `define TLBELO_PPN `PPN_WIDTH+5:6
+
+// for cache
+`define CACHE_DATA_NUM           256
+`define CACHE_WAY_NUM            2
+`define CACHE_INDEX_WIDTH        8
+`define CACHE_TAG_WIDTH          20
+`define CACHE_OFFSET_WIDTH       4
+`define CACHE_DATA_WIDTH         32
+`define CACHE_STRB_WIDTH         4
+`define CACHE_AW                 $clog2(`CACHE_DATA_NUM)
+`define CACHE_LINE_BANKS   4
+`define SRAM_SIZE_CACHE_LINE 2'b10
 
 `define EXCEPTION_WIDTH 16
 `define EXCEPTION_INT 0
@@ -555,6 +564,21 @@
 `define CSRXCHG_25_24 2'b00
 `define CSRXCHG_9_5
 
+`define CACOP_31_26 6'b000001
+`define CACOP_25_24 2'b10
+`define CACOP_23_22 2'b00
+
+`define CACOP_OP_TYPE_MSB 4
+`define CACOP_OP_TYPE_LSB 3
+`define CACOP_TARGET_MSB 2
+`define CACOP_TARGET_LSB 0
+
+`define CACOP_TARGET_ICACHE 3'b000
+`define CACOP_TARGET_DCACHE 3'b001
+`define CACOP_TYPE_STORE_TAG 2'b00 // Init / Store Tag
+`define CACOP_TYPE_INDEX_OP  2'b01 // Index Invalidate / Writeback
+`define CACOP_TYPE_HIT_OP    2'b10 // Hit Invalidate / Writeback
+
 `define TLBSRCH_31_26 6'b000001
 `define TLBSRCH_25_24 2'b10
 `define TLBSRCH_23_22 2'b01
@@ -661,19 +685,5 @@
 `define BLTU_31_26 6'b011010
 
 `define BGEU_31_26 6'b011011
-
-`define CACOP_31_22 10'b0000011000
-
-`define CACOP_OP_TYPE_MSB 4
-`define CACOP_OP_TYPE_LSB 3
-`define CACOP_TARGET_CACHE_MSB 2
-`define CACOP_TARGET_CACHE_LSB 0
-
-`define CACOP_TARGET_ICACHE 3'b000
-`define CACOP_TARGET_DCACHE 3'b001
-
-`define CACOP_TYPE_STORE_TAG 2'b00 // Init / Store Tag
-`define CACOP_TYPE_INDEX_OP  2'b01 // Index Invalidate / Writeback
-`define CACOP_TYPE_HIT_OP    2'b10 // Hit Invalidate / Writeback
 
 `endif

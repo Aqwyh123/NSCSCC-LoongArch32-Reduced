@@ -78,34 +78,50 @@ module AXI_Bridge (
     assign clk = aclk;
     always @(posedge aclk) reset <= ~aresetn;
 
-    assign data_sram_wr_addr_ok = !wr_req_buf && !write_block;
+    assign arburst = 2'b01;
+    assign arlock  = 2'b00;
+    assign arcache = 4'b0000;
+    assign arprot  = 3'b000;
+    assign awid    = 4'b0001;
+    assign awburst = 2'b01;
+    assign awlock  = 2'b00;
+    assign awcache = 4'b0000;
+    assign awprot  = 3'b000;
+    assign wid     = 4'b0001;
+    assign rready  = 1'b1;
 
-    assign arburst              = 2'b01;
-    assign arlock               = 2'b00;
-    assign arcache              = 4'b0000;
-    assign arprot               = 3'b000;
-    assign awid                 = 4'b0001;
-    assign awburst              = 2'b01;
-    assign awlock               = 2'b00;
-    assign awcache              = 4'b0000;
-    assign awprot               = 3'b000;
-    assign wid                  = 4'b0001;
-    assign rready               = 1'b1;
+    wire cpu_rd_req = data_sram_rd_req | inst_sram_req;
+    wire rd_from_data = data_sram_rd_req;
+    wire rd_from_inst = ~data_sram_rd_req & inst_sram_req;
 
-    wire        cpu_rd_req = data_sram_rd_req | inst_sram_req;
-    wire        rd_from_data = data_sram_rd_req;
-    wire        rd_from_inst = ~data_sram_rd_req & inst_sram_req;
-
-    wire [ 2:0] curr_rd_type = rd_from_data ? data_sram_rd_type : inst_sram_rd_type;
+    wire [2:0] curr_rd_type = rd_from_data ? data_sram_rd_type : inst_sram_rd_type;
     wire [31:0] curr_rd_addr = rd_from_data ? data_sram_rd_addr : inst_sram_addr;
-    wire        is_burst_rd = (curr_rd_type == 3'b100);
+    wire is_burst_rd = (curr_rd_type == 3'b100);
 
-    reg         write_pending;
-    reg  [ 3:0] write_id;
+    reg write_pending;
+    reg [3:0] write_id;
 
-    wire        curr_rd_access_type = rd_from_data ? data_sram_access_type : inst_sram_access_type;
+    wire curr_rd_access_type = rd_from_data ? data_sram_access_type : inst_sram_access_type;
 
-    wire        write_block = (write_pending && ((inst_sram_req && !inst_sram_access_type) || (data_sram_rd_req && !data_sram_access_type) || (data_sram_wr_req && !data_sram_access_type)));
+    wire write_block = (write_pending && ((inst_sram_req && !inst_sram_access_type) || (data_sram_rd_req && !data_sram_access_type) || (data_sram_wr_req && !data_sram_access_type)));
+
+    localparam WR_IDLE = 3'd0;
+    localparam WR_LATCH = 3'd1;
+    localparam WR_AW_WAIT = 3'd2;
+    localparam WR_WDATA = 3'd3;
+    localparam WR_BRESP = 3'd4;
+
+    reg [  2:0] wr_state;
+    reg [  2:0] burst_num_wr;
+    reg [127:0] burst_wr_buf;
+    reg [ 31:0] wr_addr_buf;
+    reg [  2:0] wr_type_buf;
+    reg [  3:0] wr_strb_buf;
+    reg         wr_is_burst;
+    reg         wr_req_buf;
+    reg         wr_access_type_buf;
+    reg         data_sram_wr_req_d;
+    assign data_sram_wr_addr_ok = !wr_req_buf && !write_block;
 
     localparam RD_IDLE = 2'd0;
     localparam RD_AR_WAIT = 2'd1;
@@ -139,14 +155,14 @@ module AXI_Bridge (
             case (rd_state)
                 RD_IDLE: begin
                     if (cpu_rd_req && !write_block) begin
-                        arvalid        <= 1;
-                        araddr         <= curr_rd_addr;
-                        arlen          <= (curr_rd_access_type) ? (is_burst_rd ? 8'd3 : 8'd0) : 8'd0;
-                        arsize         <= (curr_rd_access_type) ? 3'b010 : curr_rd_type[1:0];
-                        arid           <= rd_from_data ? `DATA_ARID : `INST_ARID;
+                        arvalid <= 1;
+                        araddr <= curr_rd_addr;
+                        arlen <= (curr_rd_access_type) ? (is_burst_rd ? 8'd3 : 8'd0) : 8'd0;
+                        arsize <= (curr_rd_access_type) ? 3'b010 : curr_rd_type[1:0];
+                        arid <= rd_from_data ? `DATA_ARID : `INST_ARID;
                         cur_rd_is_data <= rd_from_data;
-                        cur_rd_id      <= rd_from_data ? `DATA_ARID : `INST_ARID;
-                        rd_state       <= RD_AR_WAIT;
+                        cur_rd_id <= rd_from_data ? `DATA_ARID : `INST_ARID;
+                        rd_state <= RD_AR_WAIT;
                     end
                 end
                 RD_AR_WAIT: begin
@@ -180,33 +196,10 @@ module AXI_Bridge (
         cache_rlast  <= rvalid & rlast & (rid == cur_rd_id);
     end
 
-    localparam WR_IDLE = 3'd0;
-    localparam WR_LATCH = 3'd1;
-    localparam WR_AW_WAIT = 3'd2;
-    localparam WR_WDATA = 3'd3;
-    localparam WR_BRESP = 3'd4;
-
-    reg [  2:0] wr_state;
-    reg [  2:0] burst_num_wr;
-    reg [127:0] burst_wr_buf;
-    reg [ 31:0] wr_addr_buf;
-    reg [  2:0] wr_type_buf;
-    reg [  3:0] wr_strb_buf;
-    reg         wr_is_burst;
-    reg         wr_req_buf;
-    reg         wr_access_type_buf;
-    reg         data_sram_wr_req_d;
-
-    reg [ 31:0] suc_selected_wdata;
-    always @(*) begin
-        case (wr_addr_buf[3:2])
-            2'b00:   suc_selected_wdata = burst_wr_buf[31:0];
-            2'b01:   suc_selected_wdata = burst_wr_buf[63:32];
-            2'b10:   suc_selected_wdata = burst_wr_buf[95:64];
-            2'b11:   suc_selected_wdata = burst_wr_buf[127:96];
-            default: suc_selected_wdata = 32'h0;
-        endcase
-    end
+    wire [31:0] suc_selected_wdata = wr_addr_buf[3:2] == 2'b00 ? burst_wr_buf[31:0] :
+                                     wr_addr_buf[3:2] == 2'b01 ? burst_wr_buf[63:32] :
+                                     wr_addr_buf[3:2] == 2'b10 ? burst_wr_buf[95:64] :
+                                     burst_wr_buf[127:96];
 
     always @(posedge clk) begin
         if (reset) begin
@@ -264,9 +257,10 @@ module AXI_Bridge (
                 WR_AW_WAIT: begin
                     if (awvalid && awready) begin
                         awvalid <= 0;
-                        wvalid  <= 1;
-                        wdata   <= wr_is_burst ? burst_wr_buf[31:0] : (wr_access_type_buf ? burst_wr_buf[31:0] : suc_selected_wdata);
-                        wstrb   <= wr_is_burst ? 4'b1111 : wr_strb_buf;
+                        wvalid <= 1;
+                        wdata <= wr_is_burst ? burst_wr_buf[31:0] :
+                                 wr_access_type_buf ? burst_wr_buf[31:0] : suc_selected_wdata;
+                        wstrb <= wr_is_burst ? 4'b1111 : wr_strb_buf;
                         if (wr_is_burst) begin
                             burst_num_wr <= 3'd3;
                             wlast        <= 1'b0;
@@ -282,7 +276,7 @@ module AXI_Bridge (
                         if (wlast) begin
                             wvalid   <= 1'b0;
                             wlast    <= 1'b0;
-                            bready <= 1;
+                            bready   <= 1;
                             wr_state <= WR_BRESP;
                         end else begin
                             wdata        <= burst_wr_buf[31:0];

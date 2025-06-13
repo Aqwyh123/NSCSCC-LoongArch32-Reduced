@@ -38,6 +38,7 @@ module MEM_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_write_number,
     input  wire [                    31:0] EXE_CSR_write_data,
     input  wire [       `TLB_OP_WIDTH-1:0] EXE_TLB_operation,
+    input  wire [ `CACHE_TARGET_WIDTH-1:0] EXE_cache_target,
     input  wire                            EXE_ereturn,
     input  wire                            EXE_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
@@ -80,6 +81,7 @@ module MEM_reg (
     output reg  [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_write_number,
     output reg  [                    31:0] MEM_CSR_write_data,
     output reg  [       `TLB_OP_WIDTH-1:0] MEM_TLB_operation,
+    output reg  [ `CACHE_TARGET_WIDTH-1:0] MEM_cache_target,
     output reg                             MEM_ereturn,
     output reg                             MEM_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new,
@@ -98,14 +100,14 @@ module MEM_reg (
     output reg                             MEM_IF_TLBR,
     output reg                             MEM_EXE_TLBR
 );
-    assign MEM_ready              = ~MEM_valid | (MEM_done & WB_ready);
-    assign MEM_to_WB_valid        = MEM_valid & MEM_done;
+    assign MEM_ready       = ~MEM_valid | (MEM_done & WB_ready);
+    assign MEM_to_WB_valid = MEM_valid & MEM_done;
 
     always @(posedge clk) begin
         if (reset) begin
-            MEM_valid              <= 1'b0;
+            MEM_valid <= 1'b0;
         end else if (flush) begin
-            MEM_valid              <= 1'b0;
+            MEM_valid <= 1'b0;
         end else begin
             if (MEM_ready) begin
                 MEM_valid <= EXE_to_MEM_valid;
@@ -130,29 +132,30 @@ module MEM_reg (
 `ifdef CHIPLAB
                 MEM_MEM_paddr <= EXE_MEM_paddr;
 `endif
-                MEM_GPR_write_num      <= EXE_GPR_write_num;
-                MEM_GPR_write_src      <= EXE_GPR_write_src;
-                MEM_CSR_write          <= EXE_CSR_write;
-                MEM_CSR_write_number   <= EXE_CSR_write_number;
-                MEM_CSR_write_data     <= EXE_CSR_write_data;
-                MEM_TLB_operation      <= EXE_TLB_operation;
-                MEM_ereturn            <= EXE_ereturn;
-                MEM_refetch            <= EXE_refetch;
-                MEM_GPR_new            <= EXE_GPR_new;
-                MEM_INT                <= EXE_INT;
-                MEM_PIL                <= EXE_PIL;
-                MEM_PIS                <= EXE_PIS;
-                MEM_PIF                <= EXE_PIF;
-                MEM_PME                <= EXE_PME;
-                MEM_IF_PPI             <= EXE_IF_PPI;
-                MEM_EXE_PPI            <= EXE_PPI;
-                MEM_ADEF               <= EXE_ADEF;
-                MEM_ALE                <= EXE_ALE;
-                MEM_SYS                <= EXE_SYS;
-                MEM_BRK                <= EXE_BRK;
-                MEM_INE                <= EXE_INE;
-                MEM_IF_TLBR            <= EXE_IF_TLBR;
-                MEM_EXE_TLBR           <= EXE_TLBR;
+                MEM_GPR_write_num    <= EXE_GPR_write_num;
+                MEM_GPR_write_src    <= EXE_GPR_write_src;
+                MEM_CSR_write        <= EXE_CSR_write;
+                MEM_CSR_write_number <= EXE_CSR_write_number;
+                MEM_CSR_write_data   <= EXE_CSR_write_data;
+                MEM_TLB_operation    <= EXE_TLB_operation;
+                MEM_cache_target     <= EXE_cache_target;
+                MEM_ereturn          <= EXE_ereturn;
+                MEM_refetch          <= EXE_refetch;
+                MEM_GPR_new          <= EXE_GPR_new;
+                MEM_INT              <= EXE_INT;
+                MEM_PIL              <= EXE_PIL;
+                MEM_PIS              <= EXE_PIS;
+                MEM_PIF              <= EXE_PIF;
+                MEM_PME              <= EXE_PME;
+                MEM_IF_PPI           <= EXE_IF_PPI;
+                MEM_EXE_PPI          <= EXE_PPI;
+                MEM_ADEF             <= EXE_ADEF;
+                MEM_ALE              <= EXE_ALE;
+                MEM_SYS              <= EXE_SYS;
+                MEM_BRK              <= EXE_BRK;
+                MEM_INE              <= EXE_INE;
+                MEM_IF_TLBR          <= EXE_IF_TLBR;
+                MEM_EXE_TLBR         <= EXE_TLBR;
             end
         end
     end

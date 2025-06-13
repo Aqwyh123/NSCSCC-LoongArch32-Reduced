@@ -26,18 +26,22 @@ module CSRF #(
     output wire [        `TLBELO_WIDTH-1:0] TLB_w_lo1,
     output wire [  $clog2(TLB_ENTRIES)-1:0] TLB_f_index,
     // inst / data access signals
+    output wire [                      1:0] plv,
     output wire                             da,
     output wire                             pg,
+    output wire [                      1:0] datf,
+    output wire [                      1:0] datm,
     output wire [                      9:0] asid,
-    output wire [                      1:0] plv,
     // inst access signals
     output wire [                      1:0] plv0,
     output wire [  `CSR_DMW_PSEG_WIDTH-1:0] pseg0,
     output wire [  `CSR_DMW_VSEG_WIDTH-1:0] vseg0,
+    output wire [                      1:0] mat0,
     // data access signals
     output wire [                      1:0] plv1,
     output wire [  `CSR_DMW_PSEG_WIDTH-1:0] pseg1,
     output wire [  `CSR_DMW_VSEG_WIDTH-1:0] vseg1,
+    output wire [                      1:0] mat1,
     // interupt signals
     input  wire [                      7:0] hw_int,
     input  wire                             ip_int,
@@ -49,12 +53,7 @@ module CSRF #(
     input  wire [                     31:0] vaddr,
     output wire [                     31:0] eentry,
     output wire [                     31:0] eraddr,
-    output wire [                     31:0] rentry,
-    // MAT outputs
-    output wire [                      1:0] crmd_datf_o,
-    output wire [                      1:0] crmd_datm_o,
-    output wire [                      1:0] dmw0_mat_o,
-    output wire [                      1:0] dmw1_mat_o
+    output wire [                     31:0] rentry
 );
     reg  [               31:0] CRMD;
     reg  [               31:0] PRMD;
@@ -449,10 +448,12 @@ module CSRF #(
     assign TLB_w_lo1[`TLBELO_PPN] = TLBELO1[`CSR_TLBELO1_PPN];
     assign TLB_f_index = counter[$clog2(TLB_ENTRIES)-1:0];
 
+    assign plv = CRMD[`CSR_CRMD_PLV];
     assign da = CRMD[`CSR_CRMD_DA];
     assign pg = CRMD[`CSR_CRMD_PG];
+    assign datf = CRMD[`CSR_CRMD_DATF];
+    assign datm = CRMD[`CSR_CRMD_DATM];
     assign asid = ASID[`CSR_ASID_ASID];
-    assign plv = CRMD[`CSR_CRMD_PLV];
 
     encoder #(
         .WIDTH(`CSR_DMW_PLV_WIDTH)
@@ -462,6 +463,7 @@ module CSRF #(
     );
     assign pseg0 = DMW[0][`CSR_DMW_PSEG];
     assign vseg0 = DMW[0][`CSR_DMW_VSEG];
+    assign mat0  = DMW[0][`CSR_DMW_MAT];
 
     encoder #(
         .WIDTH(`CSR_DMW_PLV_WIDTH)
@@ -471,15 +473,11 @@ module CSRF #(
     );
     assign pseg1    = DMW[1][`CSR_DMW_PSEG];
     assign vseg1    = DMW[1][`CSR_DMW_VSEG];
+    assign mat1     = DMW[1][`CSR_DMW_MAT];
 
     assign interupt = |(ESTAT[`CSR_ESTAT_IS] & ECFG[`CSR_ECFG_LIE]) & CRMD[`CSR_CRMD_IE];
 
     assign eentry   = EENTRY;
     assign eraddr   = ERA;
     assign rentry   = TLBRENTRY;
-
-    assign crmd_datf_o = CRMD[`CSR_CRMD_DATF];
-    assign crmd_datm_o = CRMD[`CSR_CRMD_DATM];
-    assign dmw0_mat_o  = DMW[0][`CSR_DMW_MAT];
-    assign dmw1_mat_o  = DMW[1][`CSR_DMW_MAT];
 endmodule

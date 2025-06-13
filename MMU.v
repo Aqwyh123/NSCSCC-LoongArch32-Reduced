@@ -19,31 +19,31 @@ module MMU #(
     output wire [            `TLBELO_WIDTH-1:0] TLB_r_lo0,
     output wire [            `TLBELO_WIDTH-1:0] TLB_r_lo1,
     // status signals
+    input  wire [                          1:0] CSR_plv,
     input  wire                                 CSR_da,
     input  wire                                 CSR_pg,
     input  wire [                          9:0] CSR_asid,
-    input  wire [                          1:0] CSR_plv,
+    input  wire [                          1:0] CSR_datf,
+    input  wire [                          1:0] CSR_datm,
     // DMW signals
     input  wire [                          1:0] DMW0_plv,
     input  wire [                          2:0] DMW0_pseg,
     input  wire [                          2:0] DMW0_vseg,
+    input  wire [                          1:0] DMW0_mat,
     input  wire [                          1:0] DMW1_plv,
     input  wire [                          2:0] DMW1_pseg,
     input  wire [                          2:0] DMW1_vseg,
-    // MAT inputs from CSRF
-    input  wire [                          1:0] crmd_datf_i,
-    input  wire [                          1:0] crmd_datm_i,
-    input  wire [                          1:0] dmw0_mat_i,
-    input  wire [                          1:0] dmw1_mat_i,
+    input  wire [                          1:0] DMW1_mat,
     // inst fetch signals
-    input  wire                                 inst_fetch,
+    input  wire [                          2:0] inst_op,
     input  wire [                         31:0] inst_vaddr,
     output wire [                         31:0] inst_paddr,
+    output wire [                          1:0] inst_access_type,
     // data load / store signals
-    input  wire                                 data_load,
-    input  wire                                 data_store,
+    input  wire [                          2:0] data_op,
     input  wire [                         31:0] data_vaddr,
     output wire [                         31:0] data_paddr,
+    output wire [                          1:0] data_access_type,
     // exception signals
     output wire                                 PIL,
     output wire                                 PIS,
@@ -52,14 +52,12 @@ module MMU #(
     output wire                                 inst_PPI,
     output wire                                 data_PPI,
     output wire                                 inst_TLBR,
-    output wire                                 data_TLBR,
-    output reg                                  inst_access_type_o,  // 0 for SUC, 1 for CC
-    output reg                                  data_access_type_o   // 0 for SUC, 1 for CC
+    output wire                                 data_TLBR
 );
     wire [$clog2(TLB_ENTRIES)-1:0] TLB_wf_index;
 
     wire                           CSR_mode_is_dir;
-    wire                           CSR_mode_is_map;
+    // wire                           CSR_mode_is_map;
 
     wire                           inst_DMW0_hit;
     wire                           inst_DMW1_hit;
@@ -83,10 +81,14 @@ module MMU #(
     wire                           TLB1_d;
     wire                           TLB1_v;
 
-    assign TLB_wf_index = {$clog2(TLB_ENTRIES) {TLB_operation[`TLB_OP_WRITE]}} & TLB_rw_index | {$clog2(TLB_ENTRIES) {TLB_operation[`TLB_OP_FILL]}} & TLB_f_index;
+    assign TLB_wf_index = {$clog2(
+        TLB_ENTRIES
+    ) {TLB_operation[`TLB_OP_WRITE]}} & TLB_rw_index | {$clog2(
+        TLB_ENTRIES
+    ) {TLB_operation[`TLB_OP_FILL]}} & TLB_f_index;
 
     assign CSR_mode_is_dir = CSR_da & ~CSR_pg;
-    assign CSR_mode_is_map = ~CSR_da & CSR_pg;
+    // assign CSR_mode_is_map = ~CSR_da & CSR_pg;
 
     assign inst_DMW0_hit = inst_vaddr[31:29] == DMW0_vseg & CSR_plv <= DMW0_plv;
     assign inst_DMW1_hit = inst_vaddr[31:29] == DMW1_vseg & CSR_plv <= DMW1_plv;
@@ -95,6 +97,11 @@ module MMU #(
                         inst_DMW1_hit ? {DMW1_pseg, inst_vaddr[28:0]} :
                         TLB0_ps == 6'd12 ? {TLB0_ppn[31:`PPN_4KB_LSB], inst_vaddr[12-1:0]} :
                        {TLB0_ppn[31:`PPN_4MB_LSB], inst_vaddr[21-1:0]};
+    assign inst_access_type = CSR_mode_is_dir ? CSR_datf :
+                              inst_DMW0_hit ? DMW0_mat :
+                              inst_DMW1_hit ? DMW1_mat :
+                              TLB0_mat;
+
     assign data_DMW0_hit = data_vaddr[31:29] == DMW0_vseg & CSR_plv <= DMW0_plv;
     assign data_DMW1_hit = data_vaddr[31:29] == DMW1_vseg & CSR_plv <= DMW1_plv;
     assign data_paddr = CSR_mode_is_dir ? data_vaddr :
@@ -102,6 +109,10 @@ module MMU #(
                         data_DMW1_hit ? {DMW1_pseg, data_vaddr[28:0]} :
                         TLB1_ps == 6'd12 ? {TLB1_ppn[31:`PPN_4KB_LSB], data_vaddr[12-1:0]} :
                        {TLB1_ppn[31:`PPN_4MB_LSB], data_vaddr[21-1:0]};
+    assign data_access_type = CSR_mode_is_dir ? CSR_datm :
+                              data_DMW0_hit ? DMW0_mat :
+                              data_DMW1_hit ? DMW1_mat :
+                              TLB1_mat;
 
     TLB #(
         .TLB_ENTRIES(TLB_ENTRIES)
@@ -171,44 +182,20 @@ module MMU #(
         .s1_v       (TLB1_v)
     );
 
-    assign PIL       = data_load & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
-    assign PIS       = data_store & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
-    assign PIF       = inst_fetch & ~CSR_mode_is_dir & ~inst_DMW0_hit & ~inst_DMW1_hit & TLB0_hit & ~TLB0_v & CSR_plv <= TLB0_plv;
-    assign PME       = data_store & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & TLB1_v & CSR_plv <= TLB1_plv & ~TLB1_d;
-    assign inst_PPI  = inst_fetch & ~CSR_mode_is_dir & ~inst_DMW0_hit & ~inst_DMW1_hit & TLB0_hit & TLB0_v & CSR_plv > TLB0_plv;
-    assign data_PPI  = (data_load | data_store) & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & TLB1_v & CSR_plv > TLB1_plv;
-    assign inst_TLBR = inst_fetch & ~CSR_mode_is_dir & ~inst_DMW0_hit & ~inst_DMW1_hit & ~TLB0_hit;
-    assign data_TLBR = (data_load | data_store) & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit & ~TLB1_hit;
-
-    always @(*) begin
-        inst_access_type_o = 1'b1;
-        if (CSR_mode_is_dir) begin
-            inst_access_type_o = crmd_datf_i[0];
-        end else if (CSR_mode_is_map) begin
-            if (inst_DMW0_hit) begin
-                inst_access_type_o = dmw0_mat_i[0];
-            end else if (inst_DMW1_hit) begin
-                inst_access_type_o = dmw1_mat_i[0];
-            end else if (TLB0_hit) begin
-                inst_access_type_o = TLB0_mat[0];
-            end else begin
-                inst_access_type_o = 1'b1;
-            end
-        end
-
-        data_access_type_o = 1'b1;
-        if (CSR_mode_is_dir) begin
-            data_access_type_o = crmd_datm_i[0];
-        end else if (CSR_mode_is_map) begin
-            if (data_DMW0_hit) begin
-                data_access_type_o = dmw0_mat_i[0];
-            end else if (data_DMW1_hit) begin
-                data_access_type_o = dmw1_mat_i[0];
-            end else if (TLB1_hit) begin
-                data_access_type_o = TLB1_mat[0];
-            end else begin
-                data_access_type_o = 1'b1;
-            end
-        end
-    end
+    assign PIL       = data_op[1] & ~CSR_mode_is_dir &
+                      ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
+    assign PIS       = data_op[2] & ~CSR_mode_is_dir &
+                      ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
+    assign PIF       = inst_op[1] & ~CSR_mode_is_dir &
+                      ~inst_DMW0_hit & ~inst_DMW1_hit & TLB0_hit & ~TLB0_v & CSR_plv <= TLB0_plv;
+    assign PME       = data_op[2] & ~CSR_mode_is_dir &
+                      ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & TLB1_v & CSR_plv <= TLB1_plv &
+                      ~TLB1_d;
+    assign inst_PPI  = inst_op[1] & ~CSR_mode_is_dir &
+                      ~inst_DMW0_hit & ~inst_DMW1_hit & TLB0_hit & TLB0_v & CSR_plv > TLB0_plv;
+    assign data_PPI  = (data_op[1] | data_op[2]) & ~CSR_mode_is_dir &
+                       ~data_DMW0_hit & ~data_DMW1_hit & TLB1_hit & TLB1_v & CSR_plv > TLB1_plv;
+    assign inst_TLBR = inst_op[1] & ~CSR_mode_is_dir & ~inst_DMW0_hit & ~inst_DMW1_hit & ~TLB0_hit;
+    assign data_TLBR = (data_op[1] | data_op[2]) & ~CSR_mode_is_dir &
+                       ~data_DMW0_hit & ~data_DMW1_hit & ~TLB1_hit;
 endmodule

@@ -28,6 +28,8 @@ module ID_stage (
     output wire                            CSR_write,
     output wire                            CSR_write_mask,
     output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
+    output wire [ `CACHE_TARGET_WIDTH-1:0] cache_target,
+    output wire [     `CACHE_OP_WIDTH-1:0] cache_operation,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
@@ -40,34 +42,31 @@ module ID_stage (
     output wire                            refetch,
     output wire                            SYS,
     output wire                            BRK,
-    output wire                            INE,
-    output wire [                     2:0] ID_op_size,
-    output wire                            is_cacop,
-    output wire [                     4:0] cacop_code
+    output wire                            INE
 );
-    wire                            branch_reverse;
-    wire [     `OFFS_SRC_WIDTH-1:0] offs_src;
-    wire [      `IMM_SRC_WIDTH-1:0] imm_src;
-    wire                            GPR_read_src2_is_rd;
+    wire branch_reverse;
+    wire [`OFFS_SRC_WIDTH-1:0] offs_src;
+    wire [`IMM_SRC_WIDTH-1:0] imm_src;
+    wire GPR_read_src2_is_rd;
     wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
-    wire [      `CSR_SRC_WIDTH-1:0] CSR_read_src;
+    wire [`CSR_SRC_WIDTH-1:0] CSR_read_src;
 
-    wire [                     4:0] rd = inst[`RD_MSB:`RD_LSB];
-    wire [                     4:0] rj = inst[`RJ_MSB:`RJ_LSB];
-    wire [                     4:0] rk = inst[`RK_MSB:`RK_LSB];
+    wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
+    wire [4:0] rj = inst[`RJ_MSB:`RJ_LSB];
+    wire [4:0] rk = inst[`RK_MSB:`RK_LSB];
 
-    wire [                    11:0] i12 = inst[`I12_MSB:`I12_LSB];
-    wire [                    13:0] i14 = inst[`I14_MSB:`I14_LSB];
-    wire [                    19:0] i20 = inst[`I20_MSB:`I20_LSB];
+    wire [11:0] i12 = inst[`I12_MSB:`I12_LSB];
+    wire [13:0] i14 = inst[`I14_MSB:`I14_LSB];
+    wire [19:0] i20 = inst[`I20_MSB:`I20_LSB];
 
-    wire [                    15:0] o16 = inst[`O16_MSB:`O16_LSB];
-    wire [                    20:0] o21 = {inst[`O21_HI_MSB:`O21_HI_LSB], inst[`O21_LO_MSB:`O21_LO_LSB]};
-    wire [                    25:0] o26 = {inst[`O26_HI_MSB:`O26_HI_LSB], inst[`O26_LO_MSB:`O26_LO_LSB]};
-    wire [                    31:0] offs;
+    wire [15:0] o16 = inst[`O16_MSB:`O16_LSB];
+    wire [20:0] o21 = {inst[`O21_HI_MSB:`O21_HI_LSB], inst[`O21_LO_MSB:`O21_LO_LSB]};
+    wire [25:0] o26 = {inst[`O26_HI_MSB:`O26_HI_LSB], inst[`O26_LO_MSB:`O26_LO_LSB]};
+    wire [31:0] offs;
 
-    wire                            rj_eq_rd;
-    wire                            rj_lt_rd;
-    wire                            rj_ltu_rd;
+    wire rj_eq_rd;
+    wire rj_lt_rd;
+    wire rj_ltu_rd;
 
     ID id (
         .instruction        (inst),
@@ -90,6 +89,8 @@ module ID_stage (
         .CSR_write          (CSR_write),
         .CSR_write_mask     (CSR_write_mask),
         .TLB_operation      (TLB_operation),
+        .cache_target       (cache_target),
+        .cache_operation    (cache_operation),
         .ereturn            (ereturn),
         .refetch            (refetch),
         .syscall            (SYS),
@@ -98,21 +99,26 @@ module ID_stage (
         .GPR1_use           (GPR1_use),
         .GPR2_use           (GPR2_use),
         .GPR_new            (GPR_new),
-        .CSR_use            (CSR_use),
-        .is_cacop           (is_cacop),
-        .cacop_code         (cacop_code)
+        .CSR_use            (CSR_use)
     );
 
     assign GPR_read_num1 = rj;
     assign GPR_read_num2 = GPR_read_src2_is_rd ? rd : rk;
 
     assign rj_eq_rd = rj_data == rkd_data;
-    assign rj_lt_rd = rj_data[31] & ~rkd_data[31] | rj_data[31] & rj_ltu_rd | ~rkd_data[31] & rj_ltu_rd;
+    assign rj_lt_rd = rj_data[31] & ~rkd_data[31] |
+                      rj_data[31] & rj_ltu_rd |
+                     ~rkd_data[31] & rj_ltu_rd;
     assign rj_ltu_rd = rj_data < rkd_data;
 
-    assign offs = {32{offs_src[`OFFS_SRC_16]}} & {{14{o16[15]}}, o16, 2'b0} | {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}}, o21, 2'b0} | {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
+    assign offs = {32{offs_src[`OFFS_SRC_16]}} & {{14{o16[15]}}, o16, 2'b0} |
+                  {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}}, o21, 2'b0} |
+                  {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
-    assign bj_taken = valid & (jump | branch[`BRANCH_UNCOND] | branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) | branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) | branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
+    assign bj_taken = valid & (jump | branch[`BRANCH_UNCOND] |
+                               branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
+                               branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
+                               branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
     assign target_PC = (jump ? rj_data : PC) + offs;
 
@@ -125,19 +131,12 @@ module ID_stage (
 
     assign link = PC + 32'h4;
 
-    assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 : GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
+    assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
+                           GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
 
     assign CSR_number = CSR_read_src[`CSR_SRC_TID] ? `CSR_TID : i14;
 
-    assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data | {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CSR_counter[31:0] | {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CSR_counter[63:32];
-
-    wire is_load_byte = MEM_read[`MEM_READ_BYTE] | MEM_read[`MEM_READ_BYTEU];
-    wire is_load_half = MEM_read[`MEM_READ_HALF] | MEM_read[`MEM_READ_HALFU];
-    wire is_load_word = MEM_read[`MEM_READ_WORD];
-
-    wire is_store_byte = MEM_write[`MEM_WRITE_BYTE];
-    wire is_store_half = MEM_write[`MEM_WRITE_HALF];
-    wire is_store_word = MEM_write[`MEM_WRITE_WORD];
-
-    assign ID_op_size = (is_load_byte | is_store_byte) ? 3'b000 : (is_load_half | is_store_half) ? 3'b001 : (is_load_word | is_store_word) ? 3'b010 : 3'b010;
+    assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data |
+                        {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CSR_counter[31:0] |
+                        {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CSR_counter[63:32];
 endmodule
