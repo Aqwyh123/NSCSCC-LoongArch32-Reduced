@@ -53,7 +53,6 @@ module TLB #(
     input  wire                           s0_va_bit12,
     input  wire [                    9:0] s0_asid,
     output wire                           s0_hit,
-    output wire [$clog2(TLB_ENTRIES)-1:0] s0_index,
     output wire [                    5:0] s0_ps,
     output wire [        31:`PPN_4KB_LSB] s0_ppn,
     output wire [                    1:0] s0_plv,
@@ -65,7 +64,6 @@ module TLB #(
     input  wire                           s1_va_bit12,
     input  wire [                    9:0] s1_asid,
     output wire                           s1_hit,
-    output wire [$clog2(TLB_ENTRIES)-1:0] s1_index,
     output wire [                    5:0] s1_ps,
     output wire [        31:`PPN_4KB_LSB] s1_ppn,
     output wire [                    1:0] s1_plv,
@@ -73,31 +71,33 @@ module TLB #(
     output wire                           s1_d,
     output wire                           s1_v
 );
-    reg  [31:`VPPN_4KB_LSB] tlb_vppn                         [TLB_ENTRIES-1:0];
-    reg  [             5:0] tlb_ps                           [TLB_ENTRIES-1:0];
-    reg                     tlb_g                            [TLB_ENTRIES-1:0];
-    reg  [             9:0] tlb_asid                         [TLB_ENTRIES-1:0];
-    reg                     tlb_e                            [TLB_ENTRIES-1:0];
-    reg  [ 31:`PPN_4KB_LSB] tlb_ppn0                         [TLB_ENTRIES-1:0];
-    reg  [             1:0] tlb_plv0                         [TLB_ENTRIES-1:0];
-    reg  [             1:0] tlb_mat0                         [TLB_ENTRIES-1:0];
-    reg                     tlb_d0                           [TLB_ENTRIES-1:0];
-    reg                     tlb_v0                           [TLB_ENTRIES-1:0];
-    reg  [ 31:`PPN_4KB_LSB] tlb_ppn1                         [TLB_ENTRIES-1:0];
-    reg  [             1:0] tlb_plv1                         [TLB_ENTRIES-1:0];
-    reg  [             1:0] tlb_mat1                         [TLB_ENTRIES-1:0];
-    reg                     tlb_d1                           [TLB_ENTRIES-1:0];
-    reg                     tlb_v1                           [TLB_ENTRIES-1:0];
+    reg  [       31:`VPPN_4KB_LSB] tlb_vppn                         [TLB_ENTRIES-1:0];
+    reg  [                    5:0] tlb_ps                           [TLB_ENTRIES-1:0];
+    reg                            tlb_g                            [TLB_ENTRIES-1:0];
+    reg  [                    9:0] tlb_asid                         [TLB_ENTRIES-1:0];
+    reg                            tlb_e                            [TLB_ENTRIES-1:0];
+    reg  [        31:`PPN_4KB_LSB] tlb_ppn0                         [TLB_ENTRIES-1:0];
+    reg  [                    1:0] tlb_plv0                         [TLB_ENTRIES-1:0];
+    reg  [                    1:0] tlb_mat0                         [TLB_ENTRIES-1:0];
+    reg                            tlb_d0                           [TLB_ENTRIES-1:0];
+    reg                            tlb_v0                           [TLB_ENTRIES-1:0];
+    reg  [        31:`PPN_4KB_LSB] tlb_ppn1                         [TLB_ENTRIES-1:0];
+    reg  [                    1:0] tlb_plv1                         [TLB_ENTRIES-1:0];
+    reg  [                    1:0] tlb_mat1                         [TLB_ENTRIES-1:0];
+    reg                            tlb_d1                           [TLB_ENTRIES-1:0];
+    reg                            tlb_v1                           [TLB_ENTRIES-1:0];
 
-    wire                    tlb_ps_is_4KB                    [TLB_ENTRIES-1:0];
-    wire [ TLB_ENTRIES-1:0] s_match;  // vector for encoding
-    wire                    invtlb_asid_match                [TLB_ENTRIES-1:0];
-    wire                    invtlb_vppn_match                [TLB_ENTRIES-1:0];
-    wire                    invtlb_match                     [TLB_ENTRIES-1:0];
-    wire [ TLB_ENTRIES-1:0] s0_match;  // vector for encoding
-    wire                    s0_odd;
-    wire [ TLB_ENTRIES-1:0] s1_match;  // vector for encoding
-    wire                    s1_odd;
+    wire                           tlb_ps_is_4KB                    [TLB_ENTRIES-1:0];
+    wire [        TLB_ENTRIES-1:0] s_match;  // vector for encoding
+    wire                           invtlb_asid_match                [TLB_ENTRIES-1:0];
+    wire                           invtlb_vppn_match                [TLB_ENTRIES-1:0];
+    wire                           invtlb_match                     [TLB_ENTRIES-1:0];
+    wire [        TLB_ENTRIES-1:0] s0_match;  // vector for encoding
+    wire [$clog2(TLB_ENTRIES)-1:0] s0_index;
+    wire                           s0_odd;
+    wire [        TLB_ENTRIES-1:0] s1_match;  // vector for encoding
+    wire [$clog2(TLB_ENTRIES)-1:0] s1_index;
+    wire                           s1_odd;
 
     assign s_hit = |s_match;
     encoder #(

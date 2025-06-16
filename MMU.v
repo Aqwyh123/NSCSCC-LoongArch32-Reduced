@@ -62,7 +62,6 @@ module MMU #(
     wire                           inst_DMW0_hit;
     wire                           inst_DMW1_hit;
     wire                           TLB0_hit;
-    wire [$clog2(TLB_ENTRIES)-1:0] TLB0_index;
     wire [                    5:0] TLB0_ps;
     wire [        31:`PPN_4KB_LSB] TLB0_ppn;
     wire [                    1:0] TLB0_plv;
@@ -73,7 +72,6 @@ module MMU #(
     wire                           data_DMW0_hit;
     wire                           data_DMW1_hit;
     wire                           TLB1_hit;
-    wire [$clog2(TLB_ENTRIES)-1:0] TLB1_index;
     wire [                    5:0] TLB1_ps;
     wire [        31:`PPN_4KB_LSB] TLB1_ppn;
     wire [                    1:0] TLB1_plv;
@@ -162,7 +160,6 @@ module MMU #(
         .s0_va_bit12(inst_vaddr[12]),
         .s0_asid    (CSR_asid),
         .s0_hit     (TLB0_hit),
-        .s0_index   (TLB0_index),
         .s0_ps      (TLB0_ps),
         .s0_ppn     (TLB0_ppn),
         .s0_plv     (TLB0_plv),
@@ -173,7 +170,6 @@ module MMU #(
         .s1_va_bit12(data_vaddr[12]),
         .s1_asid    (CSR_asid),
         .s1_hit     (TLB1_hit),
-        .s1_index   (TLB1_index),
         .s1_ps      (TLB1_ps),
         .s1_ppn     (TLB1_ppn),
         .s1_plv     (TLB1_plv),
