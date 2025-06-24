@@ -312,77 +312,73 @@ module cache #(
     end
 
     // 写回及读出AXI接口相关
-    reg [127:0] wr_data_reg;
-    reg [ 31:0] wr_addr_reg;
-    reg [  2:0] wr_type_reg;
-    reg [  3:0] wr_wstrb_reg;
-    reg         wr_req_reg;
+    reg          wr_req_reg;
+    reg  [ 31:0] wr_addr_reg;
+    reg  [  3:0] wr_wstrb_reg;
+    reg  [  2:0] wr_type_reg;
+    reg  [127:0] wr_data_reg;
 
-    reg         suc_wr_req_reg;
-    reg [  2:0] suc_wr_type_reg;
-    reg [ 31:0] suc_wr_addr_reg;
-    reg [  3:0] suc_wr_wstrb_reg;
-    reg [127:0] suc_wr_data_reg;
+    wire         last_wr_req_flag;
 
     always @(posedge clk) begin
         if (reset) begin
             wr_req_reg <= 1'b0;
         end else begin
-            if ((main_st == M_MISS || (main_st == M_LOOKUP && is_cacop_1d)) && (evict_line_is_dirty || cacop_need_writeback) && wr_rdy) begin
-                if (!wr_req_reg) begin
-                    wr_data_reg <= {
-                        sram_data_q[replace_way][3],
-                        sram_data_q[replace_way][2],
-                        sram_data_q[replace_way][1],
-                        sram_data_q[replace_way][0]
-                    };
-                    wr_addr_reg <= {sram_tagv_q[replace_way][CACHE_TAG_WIDTH:1], index_1d, 4'b0};
-                    wr_type_reg <= 3'b100;
-                    wr_wstrb_reg <= 4'b1111;
-                    wr_req_reg <= 1'b1;
-                end
-            end
-            if (wr_rdy && wr_req_reg) begin
-                if (!suc_wr_req_reg) begin
-                    wr_req_reg <= 1'b0;
-                end
-            end
-        end
-    end
-
-    assign wr_req = wr_req_reg || suc_wr_req_reg;
-    assign wr_type = suc_wr_req_reg ? suc_wr_type_reg : wr_type_reg;
-    assign wr_addr = suc_wr_req_reg ? suc_wr_addr_reg : wr_addr_reg;
-    assign wr_data = suc_wr_req_reg ? suc_wr_data_reg : wr_data_reg;
-    assign wr_wstrb = suc_wr_req_reg ? suc_wr_wstrb_reg : wr_wstrb_reg;
-
-    // refill读AXI信号
-    assign rd_addr  = access_type_1d ? {refill_tag, refill_index, 4'b0} :
-                                       {tag_1d, index_1d, offset_1d[3:0]};
-    assign rd_type = access_type_1d ? 3'b100 : req_access_size_1d;
-
-    assign rd_req = main_st == M_REPLACE && !wr_req && wr_rdy;
-
-    always @(posedge clk) begin
-        if (reset) begin
-            suc_wr_req_reg   <= 1'b0;
-            suc_wr_type_reg  <= 3'b0;
-            suc_wr_addr_reg  <= 32'b0;
-            suc_wr_wstrb_reg <= 4'b0;
-            suc_wr_data_reg  <= 128'b0;
-        end else if ((main_st == M_MISS) && !access_type_1d && op_1d && !suc_wr_req_reg) begin
-            suc_wr_req_reg <= 1'b1;
-            suc_wr_type_reg <= req_access_size_1d;
-            suc_wr_addr_reg <= {tag_1d, index_1d, offset_1d[3:0]};
-            suc_wr_wstrb_reg <= wstrb_1d;
-            suc_wr_data_reg  <= offset_1d[3:2] == 2'b00 ? {96'b0, wdata_1d} :
+            if (!wr_req_reg &&
+                (main_st == M_MISS || (main_st == M_LOOKUP && is_cacop_1d)) &&
+                (evict_line_is_dirty || cacop_need_writeback)) begin
+                wr_data_reg <= {
+                    sram_data_q[replace_way][3],
+                    sram_data_q[replace_way][2],
+                    sram_data_q[replace_way][1],
+                    sram_data_q[replace_way][0]
+                };
+                wr_addr_reg <= {sram_tagv_q[replace_way][CACHE_TAG_WIDTH:1], index_1d, 4'b0};
+                wr_type_reg <= 3'b100;
+                wr_wstrb_reg <= 4'b1111;
+                wr_req_reg <= 1'b1;
+            end else if (!wr_req_reg && main_st == M_MISS && !access_type_1d && op_1d) begin
+                wr_addr_reg <= {tag_1d, index_1d, offset_1d[3:0]};
+                wr_type_reg <= req_access_size_1d;
+                wr_wstrb_reg <= wstrb_1d;
+                wr_data_reg  <= offset_1d[3:2] == 2'b00 ? {96'b0, wdata_1d} :
                                 offset_1d[3:2] == 2'b01 ? {64'b0, wdata_1d, 32'b0} :
                                 offset_1d[3:2] == 2'b10 ? {32'b0, wdata_1d, 64'b0} :
                                 {wdata_1d, 96'b0};
-        end else if (wr_rdy && suc_wr_req_reg) begin
-            suc_wr_req_reg <= 1'b0;
+                wr_req_reg <= 1'b1;
+            end else if (wr_req_reg && wr_rdy && wr_type_reg == 3'b100) begin
+                if (main_st == M_MISS && !access_type_1d && op_1d) begin
+                    wr_addr_reg <= {tag_1d, index_1d, offset_1d[3:0]};
+                    wr_type_reg <= req_access_size_1d;
+                    wr_wstrb_reg <= wstrb_1d;
+                    wr_data_reg  <= offset_1d[3:2] == 2'b00 ? {96'b0, wdata_1d} :
+                                    offset_1d[3:2] == 2'b01 ? {64'b0, wdata_1d, 32'b0} :
+                                    offset_1d[3:2] == 2'b10 ? {32'b0, wdata_1d, 64'b0} :
+                                    {wdata_1d, 96'b0};
+                end else begin
+                    wr_req_reg <= 1'b0;
+                end
+            end else if (wr_req_reg && wr_rdy && wr_type_reg != 3'b100) begin
+                wr_req_reg <= 1'b0;
+            end
         end
     end
+
+    assign wr_req = wr_req_reg;
+    assign wr_type = wr_type_reg;
+    assign wr_addr = wr_addr_reg;
+    assign wr_data = wr_data_reg;
+    assign wr_wstrb = wr_wstrb_reg;
+
+    assign last_wr_req_flag = wr_req_reg && wr_rdy &&
+                           (!(main_st == M_MISS && !access_type_1d && op_1d) ||
+                              wr_type_reg != 3'b100);
+
+    // refill读AXI信号
+    assign rd_addr  = access_type_1d ? {refill_tag, refill_index, 4'b0} :
+                                     {tag_1d, index_1d, offset_1d[3:0]};
+    assign rd_type = access_type_1d ? 3'b100 : req_access_size_1d;
+    assign rd_req = main_st == M_REPLACE && !wr_req && wr_rdy;
 
     // ========== Dirty表时序维护 ==========
     genvar i;
@@ -475,7 +471,9 @@ module cache #(
                 end
             end
             M_MISS:
-            main_nst = evict_line_is_dirty || (is_cacop_1d && cacop_need_writeback) ? (wr_rdy ? M_REPLACE : M_MISS) : M_REPLACE;
+            main_nst = evict_line_is_dirty || (is_cacop_1d && cacop_need_writeback) ?
+                      (last_wr_req_flag ? M_REPLACE : M_MISS) :
+                       M_REPLACE;
             M_REPLACE: main_nst = (rd_rdy ? M_REFILL : M_REPLACE);
             M_REFILL: main_nst = ((ret_valid && ret_last[0]) || is_cacop_1d) ? M_IDLE : M_REFILL;
             default: main_nst = M_IDLE;
