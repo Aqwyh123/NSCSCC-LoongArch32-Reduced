@@ -193,7 +193,7 @@ module cache #(
     wire [ CACHE_DATA_WIDTH-1:0] refill_data;
     wire [    CACHE_WAY_NUM-1:0] refill_way;
 
-    assign refill_wr = (ret_valid) || (main_st == M_REFILL && is_cacop_1d);
+    assign refill_wr = ret_valid | main_st == M_REFILL & is_cacop_1d;
     assign refill_index = replace_index;
     assign refill_tag = tag_1d;
     assign refill_bank = return_cnt;
@@ -207,11 +207,12 @@ module cache #(
     assign tagv_wr = (refill_wr && access_type_1d) || (refill_wr && is_cacop_1d);
     assign tagv_index = lookup_rd ? index : replace_rd ? replace_index : refill_index;
     assign tagv_way = lookup_rd ? {CACHE_WAY_NUM{1'b1}} :
-                      replace_rd ? 1'b1 << replace_way :
-                      is_cacop_1d & (cacop_is_store_tag | cacop_is_index_op) ?
-                     {CACHE_WAY_NUM{1'b1}} : refill_way;
+                      replace_rd | cacop_is_hit_op ? 1'b1 << replace_way :
+                      cacop_is_store_tag | cacop_is_index_op ? {CACHE_WAY_NUM{1'b1}} :
+                      refill_way;
     assign tagv_d   = cacop_is_store_tag ? {`CACHE_TAG_WIDTH'b0, 1'b0} :
-                      is_cacop_1d ? {tag_sel[replace_way], 1'b0} : {tag_1d, 1'b1};
+                      cacop_is_index_op | cacop_is_hit_op ? {tag_sel[replace_way], 1'b0} :
+                      {tag_1d, 1'b1};
 
     // data信号
     assign data_rd = rdreq_lookup_rd | replace_rd;
@@ -225,7 +226,7 @@ module cache #(
     assign data_d = refill_wr ? refill_data : wbuf_data;
 
     // 请求Buffer
-    assign req_buf_up_en = (main_nst == M_LOOKUP);
+    assign req_buf_up_en = main_nst == M_LOOKUP;
 
     // 读数据归并
     integer m;
@@ -413,7 +414,7 @@ module cache #(
             blk_mem_gen_tagv u_tagv_sram (
                 .clka (clk),
                 .ena  (sram_tagv_rd[i] | sram_tagv_wr[i]),
-                .wea  (sram_tagv_wr[i] ? 1'b1 : 1'b0),
+                .wea  (sram_tagv_wr[i]),
                 .addra(sram_tagv_index[i]),
                 .dina (sram_tagv_d[i]),
                 .douta(sram_tagv_q[i])
@@ -448,18 +449,22 @@ module cache #(
             assign tag_hit[i]   = (tag_1d == tag_sel[i]) && valid_sel[i];
         end
     endgenerate
-    assign req_hit = |tag_hit & access_type_1d;
+    assign req_hit = |tag_hit & (access_type_1d | is_cacop_1d);
 
     // ========== 主状态机 ==========
+    always @(posedge clk) begin
+        if (reset) main_st <= M_IDLE;
+        else main_st <= main_nst;
+    end
     always @(*) begin
         case (main_st)
-            M_IDLE: main_nst = (wr_op || (rd_op && !rd_conflict)) ? M_LOOKUP : M_IDLE;
+            M_IDLE: main_nst = (wr_op || (rd_op && !rd_conflict) || is_cacop) ? M_LOOKUP : M_IDLE;
             M_LOOKUP: begin
                 if (is_cacop_1d) begin
                     if (cacop_is_hit_op && !req_hit) begin
                         main_nst = M_IDLE;
                     end else if (cacop_need_writeback) begin
-                        main_nst = (wr_rdy) ? M_REPLACE : M_MISS;
+                        main_nst = wr_rdy ? M_REPLACE : M_MISS;
                     end else begin
                         main_nst = M_REFILL;
                     end
@@ -476,12 +481,12 @@ module cache #(
             default: main_nst = M_IDLE;
         endcase
     end
-    always @(posedge clk) begin
-        if (reset) main_st <= M_IDLE;
-        else main_st <= main_nst;
-    end
 
     // 命中状态机
+    always @(posedge clk) begin
+        if (reset) hit_st <= H_IDLE;
+        else hit_st <= hit_nst;
+    end
     always @(*) begin
         case (hit_st)
             H_IDLE: begin
@@ -501,19 +506,15 @@ module cache #(
             default: hit_nst = H_IDLE;
         endcase
     end
-    always @(posedge clk) begin
-        if (reset) hit_st <= H_IDLE;
-        else hit_st <= hit_nst;
-    end
 
     // ========== Output信号 ==========
     assign addr_ok = (main_st == M_IDLE && !wbuf_vld && !rd_conflict) ||
-                     (main_st == M_LOOKUP && (main_nst == M_LOOKUP) && !is_cacop_1d);
+                     (main_st == M_LOOKUP && main_nst == M_LOOKUP && !is_cacop_1d);
     assign data_ok = main_st == M_LOOKUP && req_hit && !is_cacop_1d ||
                      main_st == M_LOOKUP && op_1d && !is_cacop_1d ||
                      main_st == M_REFILL && !op_1d && ret_valid &&
                     (access_type_1d ? (return_cnt == offset_1d[3:2]) : 1'b1) ||
-                     main_st == M_LOOKUP && is_cacop_1d && cacop_is_hit_op && !req_hit ||
+                     main_st == M_LOOKUP && cacop_is_hit_op && !req_hit ||
                      main_st == M_REFILL && is_cacop_1d;
     assign rdata = (main_st == M_LOOKUP && req_hit) ? local_rdata : ret_data;
 

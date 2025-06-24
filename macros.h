@@ -150,7 +150,6 @@
 `define TLBELO_PLV 5:4
 `define TLBELO_PPN `PPN_WIDTH+5:6
 
-// for cache
 `define CACHE_DATA_NUM           256
 `define CACHE_WAY_NUM            2
 `define CACHE_INDEX_WIDTH        8

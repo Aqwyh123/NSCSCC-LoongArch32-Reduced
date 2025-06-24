@@ -253,7 +253,7 @@ module ID (
     // ui5 = ui12[4:0]
     assign imm_src[`IMM_SRC_4] = jirl | bl;
     assign imm_src[`IMM_SRC_UI12] = slli_w | srli_w | srai_w | andi | ori | xori;
-    assign imm_src[`IMM_SRC_SI12] = slti | sltui | addi_w |
+    assign imm_src[`IMM_SRC_SI12] = slti | sltui | addi_w | cacop |
                                     ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
     assign imm_src[`IMM_SRC_SI14] = 1'b0;
     assign imm_src[`IMM_SRC_SI20] = lu12i_w | pcaddu12i;
