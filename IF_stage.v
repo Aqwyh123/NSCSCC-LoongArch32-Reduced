@@ -6,9 +6,10 @@ module IF_stage (
     // control signals
     input  wire [`EXCEPTION_WIDTH-1:0] exception,
     input  wire                        ereturn,
+    input  wire                        idle,
+    input  wire                        interupt,
     input  wire                        refetch,
     input  wire [                31:0] eentry,
-    input  wire [                31:0] rentry,
     input  wire [                31:0] eraddr,
     input  wire [                31:0] rsource,
     input  wire                        bj_taken,
@@ -18,7 +19,7 @@ module IF_stage (
     input  wire                        ID_ready,
     output wire                        IF_to_ID_valid,
     // MMU signals
-    output wire                        inst_fetch,
+    output reg                         inst_fetch,
     output wire [                31:0] inst_vaddr,
     input  wire [                31:0] inst_paddr,
     input  wire                        pre_IF_PIF,
@@ -66,7 +67,7 @@ module IF_stage (
     reg                         inst_sram_data_ok_temp;
     reg  [                31:0] inst_sram_rdata_temp;
 
-    assign flush = |exception | ereturn | refetch | bj_flush;
+    assign flush = |exception | ereturn | idle | refetch | bj_flush;
     assign bj_flush = bj_taken & ~bj_stall;
 
     assign pre_IF_done = inst_sram_req & inst_sram_addr_ok | |pre_IF_exception;
@@ -94,16 +95,13 @@ module IF_stage (
             end else if (IF_ready) begin
                 IF_valid <= pre_IF_to_IF_valid;
             end
-            if (|exception[`EXCEPTION_IPE:`EXCEPTION_INT]) begin
+            if (|exception) begin
                 IF_PC            <= eentry;
-                IF_next_PC_is_PC <= 1'b1;
-            end else if (|exception[`EXCEPTION_TLBR]) begin
-                IF_PC            <= rentry;
                 IF_next_PC_is_PC <= 1'b1;
             end else if (ereturn) begin
                 IF_PC            <= eraddr;
                 IF_next_PC_is_PC <= 1'b1;
-            end else if (refetch) begin
+            end else if (refetch | idle) begin
                 IF_PC            <= rsource;
                 IF_next_PC_is_PC <= 1'b0;
             end else if (bj_flush) begin
@@ -146,10 +144,18 @@ module IF_stage (
         end
     end
 
-    assign inst_fetch = 1'b1;
+    always @(posedge clk) begin
+        if (reset) begin
+            inst_fetch <= 1'b1;
+        end else if (idle) begin
+            inst_fetch <= 1'b0;
+        end else if (interupt) begin
+            inst_fetch <= 1'b1;
+        end
+    end
     assign inst_vaddr = pre_IF_PC;
 
-    assign inst_sram_req   = ~flush & ~|pre_IF_exception &
+    assign inst_sram_req   = inst_fetch & ~flush & ~|pre_IF_exception &
                             (~IF_valid & inst_sram_data_ok_valid | (IF_done & ID_ready));
     assign inst_sram_wr = 1'b0;
     assign inst_sram_size = 2'b10;

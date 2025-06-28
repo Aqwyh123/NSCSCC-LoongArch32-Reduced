@@ -5,6 +5,7 @@ module ID_stage (
     input  wire                            valid,
     // data signals
     input  wire [                    31:0] inst,
+    input  wire [                     1:0] plv,
     input  wire [                    31:0] PC,
     output wire                            jump,
     output wire [       `BRANCH_WIDTH-1:0] branch,
@@ -22,12 +23,15 @@ module ID_stage (
     output wire                            mul_div_unsigned,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire [      `MEM_BAR_WIDTH-1:0] MEM_barrier,
     output wire                            GPR_write,
     output wire [                     4:0] GPR_write_num,
     output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
     output wire                            CSR_write,
     output wire                            CSR_write_mask,
     output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
+    output wire [ `CACHE_TARGET_WIDTH-1:0] cache_target,
+    output wire [     `CACHE_OP_WIDTH-1:0] cache_operation,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
@@ -35,12 +39,13 @@ module ID_stage (
     output wire                            bj_taken,
     output wire [                    31:0] target_PC,
     output wire [                    31:0] imm,
-    output wire [                    31:0] link,
     output wire                            ereturn,
+    output wire                            idle,
     output wire                            refetch,
     output wire                            SYS,
     output wire                            BRK,
-    output wire                            INE
+    output wire                            INE,
+    output wire                            IPE
 );
     wire branch_reverse;
     wire [`OFFS_SRC_WIDTH-1:0] offs_src;
@@ -48,6 +53,7 @@ module ID_stage (
     wire GPR_read_src2_is_rd;
     wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst;
     wire [`CSR_SRC_WIDTH-1:0] CSR_read_src;
+    wire privileged;
 
     wire [4:0] rd = inst[`RD_MSB:`RD_LSB];
     wire [4:0] rj = inst[`RJ_MSB:`RJ_LSB];
@@ -80,6 +86,7 @@ module ID_stage (
         .mul_div_unsigned   (mul_div_unsigned),
         .MEM_read           (MEM_read),
         .MEM_write          (MEM_write),
+        .MEM_barrier        (MEM_barrier),
         .GPR_write          (GPR_write),
         .GPR_write_dst      (GPR_write_dst),
         .GPR_write_src      (GPR_write_src),
@@ -87,11 +94,15 @@ module ID_stage (
         .CSR_write          (CSR_write),
         .CSR_write_mask     (CSR_write_mask),
         .TLB_operation      (TLB_operation),
+        .cache_target       (cache_target),
+        .cache_operation    (cache_operation),
         .ereturn            (ereturn),
-        .refetch            (refetch),
+        .idle               (idle),
         .syscall            (SYS),
         .__break            (BRK),
         .not_existed        (INE),
+        .privileged         (privileged),
+        .refetch            (refetch),
         .GPR1_use           (GPR1_use),
         .GPR2_use           (GPR2_use),
         .GPR_new            (GPR_new),
@@ -108,13 +119,13 @@ module ID_stage (
     assign rj_ltu_rd = rj_data < rkd_data;
 
     assign offs = {32{offs_src[`OFFS_SRC_16]}} & {{14{o16[15]}}, o16, 2'b0} |
-                  {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}},o21,2'b0} |
+                  {32{offs_src[`OFFS_SRC_21]}} & {{9{o21[20]}}, o21, 2'b0} |
                   {32{offs_src[`OFFS_SRC_26]}} & {{4{o26[25]}}, o26, 2'b0};
 
     assign bj_taken = valid & (jump | branch[`BRANCH_UNCOND] |
-                      branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
-                      branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
-                      branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
+                               branch[`BRANCH_EQ] & (branch_reverse ^ rj_eq_rd) |
+                               branch[`BRANCH_LT] & (branch_reverse ^ rj_lt_rd) |
+                               branch[`BRANCH_LTU] & (branch_reverse ^ rj_ltu_rd));
 
     assign target_PC = (jump ? rj_data : PC) + offs;
 
@@ -122,17 +133,21 @@ module ID_stage (
     assign imm = {32{imm_src[`IMM_SRC_4]}} & 32'h4 |
                  {32{imm_src[`IMM_SRC_UI12]}} & {20'b0, i12} |
                  {32{imm_src[`IMM_SRC_SI12]}} & {{20{i12[11]}}, i12} |
-                 {32{imm_src[`IMM_SRC_SI14]}} & {{18{i14[13]}}, i14} |
+                 {32{imm_src[`IMM_SRC_SI14]}} & {{16{i14[13]}}, i14, 2'b00} |
                  {32{imm_src[`IMM_SRC_SI20]}} & {i20, 12'b0};
-
-    assign link = PC + 32'h4;
 
     assign GPR_write_num = GPR_write_dst[`GPR_WRITE_DST_R1] ? 5'd1 :
                            GPR_write_dst[`GPR_WRITE_DST_RJ] ? rj : rd;
 
-    assign CSR_number = CSR_read_src[`CSR_SRC_TID] ? `CSR_TID : i14;
+    assign CSR_number = CSR_read_src[`CSR_SRC_TLBIDX] ? `CSR_TLBIDX :
+                        CSR_read_src[`CSR_SRC_LLBCTL] ? `CSR_LLBCTL :
+                        CSR_read_src[`CSR_SRC_TID] ? `CSR_TID :
+                        i14;
 
-    assign CSR_result = {32{|CSR_read_src[`CSR_SRC_TID:`CSR_SRC_CSR]}} & CSR_read_data |
+    assign CSR_result = {32{CSR_read_src[`CSR_SRC_CSR] |
+                            CSR_read_src[`CSR_SRC_TID]}} & CSR_read_data |
                         {32{CSR_read_src[`CSR_SRC_CNTLO]}} & CSR_counter[31:0] |
                         {32{CSR_read_src[`CSR_SRC_CNTHI]}} & CSR_counter[63:32];
+
+    assign IPE = privileged & plv != 2'b00;
 endmodule

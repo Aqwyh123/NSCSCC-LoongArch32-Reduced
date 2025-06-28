@@ -14,10 +14,13 @@ module MEM_stage (
     input  wire [                    31:0] EXE_ALU_result,
     input  wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    input  wire                            llbit,
     output wire [                    31:0] ALU_result,
     output wire [                    31:0] MEM_result
 );
-    assign done = ~|exception & (|MEM_read | |MEM_write) ? data_sram_data_ok : 1'b1;
+    assign done = ~|exception & (|MEM_read | |{MEM_write[`MEM_WRITE_COND] & llbit,
+                                               MEM_write[`MEM_WRITE_WORD:`MEM_WRITE_BYTE]}) ?
+                  data_sram_data_ok : 1'b1;
 
     assign ALU_result = ALU_operation[`ALU_OP_MUL] ? mul_result[31:0] :
                         ALU_operation[`ALU_OP_MULH] ? mul_result[63:32] :
@@ -54,8 +57,9 @@ module MEM_stage (
                                    {16'b0, data_sram_rdata[31:16]} :
                                    {16'b0, data_sram_rdata[15:0]};
     assign MEM_result = {32{MEM_read[`MEM_READ_BYTE]}} & MEM_byte_result |
-                        {32{MEM_read[`MEM_READ_HALF]}} & MEM_half_result |
-                        {32{MEM_read[`MEM_READ_WORD]}} & data_sram_rdata |
                         {32{MEM_read[`MEM_READ_BYTEU]}} & MEM_byteu_result |
-                        {32{MEM_read[`MEM_READ_HALFU]}} & MEM_halfu_result;
+                        {32{MEM_read[`MEM_READ_HALF]}} & MEM_half_result |
+                        {32{MEM_read[`MEM_READ_HALFU]}} & MEM_halfu_result |
+                        {32{|MEM_read[`MEM_READ_LINK:`MEM_READ_WORD]}} & data_sram_rdata;
+
 endmodule

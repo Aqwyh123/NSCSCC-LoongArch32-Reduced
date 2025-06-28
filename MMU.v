@@ -169,11 +169,11 @@ module MMU #(
     );
 
     assign PIL = data_load & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit &
-                 TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
+                 TLB1_hit & ~TLB1_v;
     assign PIS = data_store & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit &
-                 TLB1_hit & ~TLB1_v & CSR_plv <= TLB1_plv;
+                 TLB1_hit & ~TLB1_v;
     assign PIF = inst_fetch & ~CSR_mode_is_dir & ~inst_DMW0_hit & ~inst_DMW1_hit &
-                 TLB0_hit & ~TLB0_v & CSR_plv <= TLB0_plv;
+                 TLB0_hit & ~TLB0_v;
     assign PME = data_store & ~CSR_mode_is_dir & ~data_DMW0_hit & ~data_DMW1_hit &
                  TLB1_hit & TLB1_v & CSR_plv <= TLB1_plv & ~TLB1_d;
     assign inst_PPI = inst_fetch & ~CSR_mode_is_dir &

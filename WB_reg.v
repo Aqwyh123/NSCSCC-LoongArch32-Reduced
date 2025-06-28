@@ -23,11 +23,12 @@ module WB_reg (
 `endif
     input  wire [                    31:0] MEM_CSR_result,
     input  wire [                    31:0] MEM_ALU_result,
-`ifdef CHIPLAB
     input  wire [     `MEM_READ_WIDTH-1:0] MEM_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write,
+`ifdef CHIPLAB
     input  wire [                    31:0] MEM_MEM_paddr,
 `endif
+    input  wire                            MEM_llbit,
     input  wire [                    31:0] MEM_MEM_result,
     input  wire                            MEM_GPR_write,
     input  wire [                     4:0] MEM_GPR_write_num,
@@ -36,8 +37,9 @@ module WB_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] MEM_CSR_write_number,
     input  wire [                    31:0] MEM_CSR_write_data,
     input  wire [       `TLB_OP_WIDTH-1:0] MEM_TLB_operation,
-    input  wire                            MEM_refetch,
     input  wire                            MEM_ereturn,
+    input  wire                            MEM_idle,
+    input  wire                            MEM_refetch,
     input  wire                            MEM_INT,
     input  wire                            MEM_PIL,
     input  wire                            MEM_PIS,
@@ -50,6 +52,7 @@ module WB_reg (
     input  wire                            MEM_SYS,
     input  wire                            MEM_BRK,
     input  wire                            MEM_INE,
+    input  wire                            MEM_IPE,
     input  wire                            MEM_IF_TLBR,
     input  wire                            MEM_EXE_TLBR,
     output reg  [                    31:0] WB_PC,
@@ -64,11 +67,12 @@ module WB_reg (
 `endif
     output reg  [                    31:0] WB_CSR_result,
     output reg  [                    31:0] WB_ALU_result,
-`ifdef CHIPLAB
     output reg  [     `MEM_READ_WIDTH-1:0] WB_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] WB_MEM_write,
+`ifdef CHIPLAB
     output reg  [                    31:0] WB_MEM_paddr,
 `endif
+    output reg                             WB_llbit,
     output reg  [                    31:0] WB_MEM_result,
     output reg                             WB_GPR_write,
     output reg  [                     4:0] WB_GPR_write_num,
@@ -78,6 +82,7 @@ module WB_reg (
     output reg  [                    31:0] WB_CSR_write_data,
     output reg  [       `TLB_OP_WIDTH-1:0] WB_TLB_operation,
     output reg                             WB_ereturn,
+    output reg                             WB_idle,
     output reg                             WB_refetch,
     output reg                             WB_INT,
     output reg                             WB_PIL,
@@ -91,6 +96,7 @@ module WB_reg (
     output reg                             WB_SYS,
     output reg                             WB_BRK,
     output reg                             WB_INE,
+    output reg                             WB_IPE,
     output reg                             WB_IF_TLBR,
     output reg                             WB_EXE_TLBR
 );
@@ -118,11 +124,12 @@ module WB_reg (
 `endif
                 WB_CSR_result <= MEM_CSR_result;
                 WB_ALU_result <= MEM_ALU_result;
+                WB_MEM_read   <= MEM_MEM_read;
+                WB_MEM_write  <= MEM_MEM_write;
 `ifdef CHIPLAB
-                WB_MEM_read  <= MEM_MEM_read;
-                WB_MEM_write <= MEM_MEM_write;
                 WB_MEM_paddr <= MEM_MEM_paddr;
 `endif
+                WB_llbit            <= MEM_llbit;
                 WB_MEM_result       <= MEM_MEM_result;
                 WB_GPR_write        <= MEM_GPR_write;
                 WB_GPR_write_src    <= MEM_GPR_write_src;
@@ -132,6 +139,7 @@ module WB_reg (
                 WB_CSR_write_data   <= MEM_CSR_write_data;
                 WB_TLB_operation    <= MEM_TLB_operation;
                 WB_ereturn          <= MEM_ereturn;
+                WB_idle             <= MEM_idle;
                 WB_refetch          <= MEM_refetch;
                 WB_INT              <= MEM_INT;
                 WB_PIL              <= MEM_PIL;
@@ -145,6 +153,7 @@ module WB_reg (
                 WB_SYS              <= MEM_SYS;
                 WB_BRK              <= MEM_BRK;
                 WB_INE              <= MEM_INE;
+                WB_IPE              <= MEM_IPE;
                 WB_IF_TLBR          <= MEM_IF_TLBR;
                 WB_EXE_TLBR         <= MEM_EXE_TLBR;
             end

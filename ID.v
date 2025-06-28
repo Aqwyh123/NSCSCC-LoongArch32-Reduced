@@ -14,18 +14,23 @@ module ID (
     output wire                            mul_div_unsigned,
     output wire [     `MEM_READ_WIDTH-1:0] MEM_read,
     output wire [    `MEM_WRITE_WIDTH-1:0] MEM_write,
+    output wire [      `MEM_BAR_WIDTH-1:0] MEM_barrier,
     output wire                            GPR_write,
     output wire [`GPR_WRITE_DST_WIDTH-1:0] GPR_write_dst,        // default : rd
     output wire [`GPR_WRITE_SRC_WIDTH-1:0] GPR_write_src,
-    output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
     output wire [      `CSR_SRC_WIDTH-1:0] CSR_read_src,
     output wire                            CSR_write,
     output wire                            CSR_write_mask,
+    output wire [       `TLB_OP_WIDTH-1:0] TLB_operation,
+    output wire [ `CACHE_TARGET_WIDTH-1:0] cache_target,
+    output wire [     `CACHE_OP_WIDTH-1:0] cache_operation,
     output wire                            ereturn,
+    output wire                            idle,
     output wire                            syscall,
     output wire                            __break,
-    output wire                            refetch,
     output wire                            not_existed,
+    output wire                            privileged,
+    output wire                            refetch,
     output wire                            GPR1_use,
     output wire                            GPR2_use,
     output wire [      `GPR_NEW_WIDTH-1:0] GPR_new,
@@ -186,7 +191,9 @@ module ID (
     wire csrwr = instr_31_26_d[`CSRWR_31_26] & instr_25_24_d[`CSRWR_25_24] &
                  instr_9_5_d[`CSRWR_9_5];
     wire csrxchg = instr_31_26_d[`CSRXCHG_31_26] & instr_25_24_d[`CSRXCHG_25_24] &
-                   ~instr_9_5_d[`CSRRD_9_5] & ~instr_9_5_d[`CSRWR_9_5];
+                  ~instr_9_5_d[`CSRRD_9_5] & ~instr_9_5_d[`CSRWR_9_5];
+    wire cacop = instr_31_26_d[`CACOP_31_26] & instr_25_24_d[`CACOP_25_24] &
+                 instr_23_22_d[`CACOP_23_22];
     wire tlbsrch = instr_31_26_d[`TLBSRCH_31_26] & instr_25_24_d[`TLBSRCH_25_24] &
                    instr_23_22_d[`TLBSRCH_23_22] & instr_21_20_d[`TLBSRCH_21_20] &
                    instr_19_15_d[`TLBSRCH_19_15] & instr_14_10_d[`TLBSRCH_14_10] &
@@ -207,11 +214,16 @@ module ID (
                 instr_23_22_d[`ERTN_23_22] & instr_21_20_d[`ERTN_21_20] &
                 instr_19_15_d[`ERTN_19_15] & instr_14_10_d[`ERTN_14_10] &
                 instr_9_5_d[`ERTN_9_5] & instr_4_0_d[`ERTN_4_0];
+    assign idle = instr_31_26_d[`IDLE_31_26] & instr_25_24_d[`IDLE_25_24] &
+                  instr_23_22_d[`IDLE_23_22] & instr_21_20_d[`IDLE_21_20] &
+                  instr_19_15_d[`IDLE_19_15];
     wire invtlb = instr_31_26_d[`INVTLB_31_26] & instr_25_24_d[`INVTLB_25_24] &
                   instr_23_22_d[`INVTLB_23_22] & instr_21_20_d[`INVTLB_21_20] &
                   instr_19_15_d[`INVTLB_19_15] & |instr_4_0_d[6:0];
     wire lu12i_w = instr_31_26_d[`LU12I_W_31_26] & ~instruction[25];
     wire pcaddu12i = instr_31_26_d[`PCADDU12I_31_26] & ~instruction[25];
+    wire ll_w = instr_31_26_d[`LL_W_31_26] & instr_25_24_d[`LL_W_25_24];
+    wire sc_w = instr_31_26_d[`SC_W_31_26] & instr_25_24_d[`SC_W_25_24];
     wire ld_b = instr_31_26_d[`LD_B_31_26] & instr_25_24_d[`LD_B_25_24] &
                 instr_23_22_d[`LD_B_23_22];
     wire ld_h = instr_31_26_d[`LD_H_31_26] & instr_25_24_d[`LD_H_25_24] &
@@ -228,6 +240,14 @@ module ID (
                  instr_23_22_d[`LD_BU_23_22];
     wire ld_hu = instr_31_26_d[`LD_HU_31_26] & instr_25_24_d[`LD_HU_25_24] &
                  instr_23_22_d[`LD_HU_23_22];
+    wire preld = instr_31_26_d[`PRELD_31_26] & instr_25_24_d[`PRELD_25_24] &
+                 instr_23_22_d[`PRELD_23_22];
+    wire dbar  = instr_31_26_d[`DBAR_31_26] & instr_25_24_d[`DBAR_25_24] &
+                 instr_23_22_d[`DBAR_23_22] & instr_21_20_d[`DBAR_21_20] &
+                 instr_19_15_d[`DBAR_19_15];
+    wire ibar  = instr_31_26_d[`IBAR_31_26] & instr_25_24_d[`IBAR_25_24] &
+                 instr_23_22_d[`IBAR_23_22] & instr_21_20_d[`IBAR_21_20] &
+                 instr_19_15_d[`IBAR_19_15];
     wire jirl = instr_31_26_d[`JIRL_31_26];
     wire b = instr_31_26_d[`B_31_26];
     wire bl = instr_31_26_d[`BL_31_26];
@@ -250,24 +270,26 @@ module ID (
     // ui5 = ui12[4:0]
     assign imm_src[`IMM_SRC_4] = jirl | bl;
     assign imm_src[`IMM_SRC_UI12] = slli_w | srli_w | srai_w | andi | ori | xori;
-    assign imm_src[`IMM_SRC_SI12] = slti | sltui | addi_w |
+    assign imm_src[`IMM_SRC_SI12] = slti | sltui | addi_w | cacop | preld |
                                     ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
-    assign imm_src[`IMM_SRC_SI14] = 1'b0;
+    assign imm_src[`IMM_SRC_SI14] = ll_w | sc_w;
     assign imm_src[`IMM_SRC_SI20] = lu12i_w | pcaddu12i;
 
     assign offs_src[`OFFS_SRC_16] = jirl | beq | bne | blt | bge | bltu | bgeu;
     assign offs_src[`OFFS_SRC_21] = 1'b0;
     assign offs_src[`OFFS_SRC_26] = b | bl;
 
-    assign GPR_read_src2_is_rd = st_b | st_h | st_w | beq | bne | blt | bge | bltu | bgeu |
+    assign GPR_read_src2_is_rd = sc_w | st_b | st_h | st_w | beq | bne | blt | bge | bltu | bgeu |
                                  csrwr | csrxchg;
 
     assign ALU_src1_is_PC = jirl | bl | pcaddu12i;
     assign ALU_src2_is_imm = slli_w | srli_w | srai_w | slti | sltui | addi_w | andi | ori | xori |
-                             lu12i_w | pcaddu12i | ld_b | ld_h | ld_w | ld_bu | ld_hu |
-                             st_b | st_h | st_w | jirl | bl;
+                             lu12i_w | pcaddu12i | ll_w | sc_w |
+                             ld_b | ld_h | ld_w | ld_bu | ld_hu |
+                             st_b | st_h | st_w | jirl | bl | cacop | preld;
 
     assign ALU_operation[`ALU_OP_ADD] = add_w | addi_w | jirl | bl | pcaddu12i |
+                                        ll_w | sc_w |  cacop | preld |
                                         ld_b | ld_h | ld_w | st_b | st_h | st_w | ld_bu | ld_hu;
     assign ALU_operation[`ALU_OP_SUB] = sub_w;
     assign ALU_operation[`ALU_OP_SLT] = slt | slti;
@@ -288,42 +310,49 @@ module ID (
     assign mul_div_unsigned = mulhu_wu | div_wu | mod_wu;
 
     assign MEM_read[`MEM_READ_BYTE] = ld_b;
-    assign MEM_read[`MEM_READ_HALF] = ld_h;
-    assign MEM_read[`MEM_READ_WORD] = ld_w;
     assign MEM_read[`MEM_READ_BYTEU] = ld_bu;
+    assign MEM_read[`MEM_READ_HALF] = ld_h;
     assign MEM_read[`MEM_READ_HALFU] = ld_hu;
+    assign MEM_read[`MEM_READ_WORD] = ld_w;
+    assign MEM_read[`MEM_READ_LINK] = ll_w;
 
     assign MEM_write[`MEM_WRITE_BYTE] = st_b;
     assign MEM_write[`MEM_WRITE_HALF] = st_h;
     assign MEM_write[`MEM_WRITE_WORD] = st_w;
+    assign MEM_write[`MEM_WRITE_COND] = sc_w;
+
+    assign MEM_barrier[`MEM_BAR_INST] = ibar;
+    assign MEM_barrier[`MEM_BAR_DATA] = dbar;
 
     assign GPR_write = jirl | bl | lu12i_w | pcaddu12i | rdcntvl_w | rdcntvh_w | rdcntid_w |
                        add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
                        andi | ori | xori | sll_w | srl_w | sra_w |
                        mul_w | mulh_w | mulhu_wu | div_w | mod_w | div_wu | mod_wu |
-                       slli_w | srli_w | srai_w | slti | sltui | addi_w |
+                       slli_w | srli_w | srai_w | slti | sltui | addi_w | ll_w | sc_w |
                        ld_b | ld_h | ld_w | ld_bu | ld_hu | csrrd | csrwr | csrxchg;
 
     assign GPR_write_dst[`GPR_WRITE_DST_R1] = bl;
     assign GPR_write_dst[`GPR_WRITE_DST_RJ] = rdcntid_w;
 
-    assign GPR_write_src[`GPR_WRITE_SRC_LINK] = jirl | bl;
     assign GPR_write_src[`GPR_WRITE_SRC_LUI] = lu12i_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_CSR] = rdcntid_w | rdcntvl_w | rdcntvh_w |
+                                               csrrd | csrwr | csrxchg;
     assign GPR_write_src[`GPR_WRITE_SRC_ALU] = add_w | sub_w | slt | sltu | jirl | bl | lu12i_w |
                                                __and | __nor | __or | __xor | andi | ori | xori |
                                                sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
                                                div_w | mod_w | div_wu | mod_wu | pcaddu12i |
                                                slli_w | srli_w | srai_w | slti | sltui | addi_w;
-    assign GPR_write_src[`GPR_WRITE_SRC_MEM] = ld_b | ld_h | ld_w | ld_bu | ld_hu;
-    assign GPR_write_src[`GPR_WRITE_SRC_CSR] = rdcntid_w | rdcntvl_w | rdcntvh_w |
-                                               csrrd | csrwr | csrxchg;
+    assign GPR_write_src[`GPR_WRITE_SRC_COND] = sc_w;
+    assign GPR_write_src[`GPR_WRITE_SRC_MEM] = ll_w | ld_b | ld_h | ld_w | ld_bu | ld_hu;
 
     assign CSR_read_src[`CSR_SRC_CSR] = csrrd | csrwr | csrxchg;
+    assign CSR_read_src[`CSR_SRC_LLBCTL] = ll_w | sc_w;
+    assign CSR_read_src[`CSR_SRC_TLBIDX] = tlbsrch;
     assign CSR_read_src[`CSR_SRC_TID] = rdcntid_w;
     assign CSR_read_src[`CSR_SRC_CNTLO] = rdcntvl_w;
     assign CSR_read_src[`CSR_SRC_CNTHI] = rdcntvh_w;
 
-    assign CSR_write = csrwr | csrxchg;
+    assign CSR_write = csrwr | csrxchg | ll_w | tlbsrch;
 
     assign CSR_write_mask = csrxchg;
 
@@ -333,44 +362,61 @@ module ID (
     assign TLB_operation[`TLB_OP_FILL] = tlbfill;
     assign TLB_operation[`TLB_OP_INV] = {`TLB_INVOP_WIDTH{invtlb}} & {instr_4_0_d[6:0]};
 
+    assign cache_target[`CACHE_TARGET_ICACHE] = cacop & instruction[2:0] == `CACOP_TARGET_ICACHE |
+                                                preld & instr_4_0_d[0];
+    assign cache_target[`CACHE_TARGET_DCACHE] = cacop & instruction[2:0] == `CACOP_TARGET_DCACHE |
+                                                preld & instr_4_0_d[8];
+
+    assign cache_operation[`CACHE_OP_STORE_TAG] = cacop & instruction[4:3] == `CACOP_TYPE_STORE_TAG;
+    assign cache_operation[`CACHE_OP_INDEX] = cacop & instruction[4:3] == `CACOP_TYPE_INDEX_OP;
+    assign cache_operation[`CACHE_OP_HIT] = cacop & instruction[4:3] == `CACOP_TYPE_HIT_OP;
+    assign cache_operation[`CACHE_OP_PRELD] = preld & (instr_4_0_d[0] | instr_4_0_d[8]);
+
     assign ereturn = ertn;
 
-    assign refetch =  tlbrd | tlbwr | tlbfill | invtlb |
-                     (csrwr | csrxchg) & (instruction[`I14_MSB:`I14_LSB] == `CSR_CRMD |
-                                          instruction[`I14_MSB:`I14_LSB] == `CSR_ASID |
-                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW0 |
-                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW1);
+    assign privileged = csrrd | csrwr | csrxchg |
+                        tlbsrch | tlbrd | tlbwr | tlbfill | invtlb |
+                        cacop & instruction[4:3] != `CACOP_TYPE_HIT_OP |
+                        ertn | idle;
 
     assign not_existed = ~rdcntid_w & ~rdcntvl_w & ~rdcntvh_w &
                          ~add_w & ~sub_w & ~slt & ~sltu & ~__nor & ~__and & ~__or & ~__xor &
                          ~sll_w & ~srl_w & ~sra_w & ~mul_w & ~mulh_w & ~mulhu_wu & ~div_w & ~mod_w &
                          ~div_wu & ~mod_wu & ~__break & ~syscall & ~slli_w & ~srli_w & ~srai_w &
                          ~slti & ~sltui & ~addi_w & ~andi & ~ori & ~xori & ~csrrd & ~csrwr &
-                         ~csrxchg & ~ertn & ~lu12i_w & ~pcaddu12i &
+                         ~csrxchg & ~ertn & ~lu12i_w & ~pcaddu12i & ~ll_w & ~sc_w &
                          ~ld_b & ~ld_h & ~ld_w & ~st_b & ~st_h & ~st_w & ~ld_bu & ~ld_hu & ~jirl &
                          ~b & ~bl & ~beq & ~bne & ~blt & ~bge & ~bltu & ~bgeu &
-                         ~tlbsrch & ~tlbrd & ~tlbwr & ~tlbfill & ~invtlb;
+                         ~tlbsrch & ~tlbrd & ~tlbwr & ~tlbfill & ~invtlb & ~cacop & ~preld &
+                         ~dbar & ~ibar & ~idle;
+
+    assign refetch =  tlbrd | tlbwr | tlbfill | invtlb |
+                     (csrwr | csrxchg) & (instruction[`I14_MSB:`I14_LSB] == `CSR_CRMD |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_ASID |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW0 |
+                                          instruction[`I14_MSB:`I14_LSB] == `CSR_DMW1) |
+                      cacop & instruction[2:0] ==`CACOP_TARGET_ICACHE | ibar;
 
     assign GPR1_use = add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
                       sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
                       div_w | mod_w | div_wu | mod_wu | slli_w | srli_w | srai_w |
                       slti | sltui | addi_w | andi | ori | xori |
-                      ld_b | ld_h | ld_w | ld_bu | ld_hu | st_b | st_h | st_w |
-                      beq | bne | blt | bge | bltu | bgeu | jirl | csrxchg | invtlb;
+                      ll_w | sc_w | ld_b | ld_h | ld_w | ld_bu | ld_hu | st_b | st_h | st_w |
+                      beq | bne | blt | bge | bltu | bgeu | jirl | csrxchg | invtlb | cacop | preld;
     assign GPR2_use = beq | bne | blt | bge | bltu | bgeu |
                       add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
-                      sll_w | srl_w | sra_w | st_b | st_h | st_w |
+                      sll_w | srl_w | sra_w | sc_w | st_b | st_h | st_w |
                       mul_w | mulh_w | mulhu_wu | div_w | mod_w | div_wu | mod_wu |
                       csrwr | csrxchg | invtlb;
 
-    assign GPR_new[`GPR_NEW_EXE] = jirl | bl | lu12i_w |
+    assign GPR_new[`GPR_NEW_EXE] = lu12i_w |
                                    csrrd | csrwr | csrxchg | rdcntid_w | rdcntvl_w | rdcntvh_w;
     assign GPR_new[`GPR_NEW_MEM] = add_w | sub_w | slt | sltu | __and | __nor | __or | __xor |
-                                   sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
+                                   jirl | bl | sll_w | srl_w | sra_w | mul_w | mulh_w | mulhu_wu |
                                    div_w | mod_w | div_wu | mod_wu | slli_w | srli_w | srai_w |
-                                   slti | sltui | addi_w | andi | ori | xori | pcaddu12i;
-    assign GPR_new[`GPR_NEW_WB] = ld_b | ld_h | ld_w | ld_bu | ld_hu;
+                                   slti | sltui | addi_w | andi | ori | xori | pcaddu12i | sc_w;
+    assign GPR_new[`GPR_NEW_WB] = ll_w | ld_b | ld_h | ld_w | ld_bu | ld_hu;
 
-    assign CSR_use = rdcntid_w | csrrd | csrwr | csrxchg;
+    assign CSR_use = rdcntid_w | csrrd | csrwr | csrxchg | sc_w;
 endmodule
 

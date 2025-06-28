@@ -103,7 +103,7 @@ module AXI_Bridge (
     assign read_addr_ok = read_request_state == ReadRequestIdle &
                          (write_request_state == WriteRequestIdle | bvalid & bready);
     assign write_addr_ok = write_request_state == WriteRequestIdle;
-    assign inst_sram_addr_ok = ~data_sram_req & read_addr_ok;
+    assign inst_sram_addr_ok = ~(data_sram_req & ~data_sram_wr) & read_addr_ok;
     assign data_sram_addr_ok = data_sram_wr ? write_addr_ok : read_addr_ok;
     assign inst_sram_data_ok = rid == `INST_ARID & rvalid & rready;
     assign data_sram_data_ok = rid == `DATA_ARID & rvalid & rready | bvalid & bready;

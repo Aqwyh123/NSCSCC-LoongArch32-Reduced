@@ -91,12 +91,12 @@ module mycpu_top (
     wire [                    31:0] PC;
     wire                            flush;
     wire [    `EXCEPTION_WIDTH-1:0] exception;
+    wire                            interupt;
     wire                            ereturn;
+    wire                            idle;
     wire                            refetch;
-    wire                            request;
     wire [                    31:0] eentry;
     wire [                    31:0] eraddr;
-    wire [                    31:0] rentry;
     wire [                    31:0] rsource;
 
     wire                            DA;
@@ -144,6 +144,7 @@ module mycpu_top (
     wire [                    31:0] ID_inst;
     wire [    `EXCEPTION_WIDTH-1:0] ID_exception;
     wire                            ID_ereturn;
+    wire                            ID_idle;
     wire                            ID_refetch;
     wire                            ID_INT;
     wire                            ID_PIF;
@@ -152,13 +153,15 @@ module mycpu_top (
     wire                            ID_SYS;
     wire                            ID_BRK;
     wire                            ID_INE;
+    wire                            ID_IPE;
     wire                            ID_IF_TLBR;
 
     wire                            ID_stall;
     wire                            ID_GPR_stall;
     wire                            ID_CSR_stall;
-    wire                            ID_TLB_stall;
     wire                            ID_int_stall;
+    wire                            ID_barrier_stall;
+    wire                            ID_data_stall;
     wire                            ID_flush_stall;
     wire                            ID_bj_stall;
     wire                            ID_MEM_GPR1_A;
@@ -172,9 +175,6 @@ module mycpu_top (
     wire                            ID_EXE_CSR;
     wire                            ID_MEM_CSR;
     wire                            ID_WB_CSR;
-    wire                            ID_EXE_TLB;
-    wire                            ID_MEM_TLB;
-    wire                            ID_WB_TLB;
     wire                            ID_EXE_int;
     wire                            ID_MEM_int;
     wire                            ID_WB_int;
@@ -196,7 +196,6 @@ module mycpu_top (
     wire                            ID_GPR_write;
     wire [                     4:0] ID_GPR_write_num;
     wire [`GPR_WRITE_SRC_WIDTH-1:0] ID_GPR_write_src;
-    wire [                    31:0] ID_link;
     wire [                    31:0] ID_imm;
 
     wire                            ID_ALU_src1_is_PC;
@@ -206,6 +205,7 @@ module mycpu_top (
 
     wire [     `MEM_READ_WIDTH-1:0] ID_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] ID_MEM_write;
+    wire [      `MEM_BAR_WIDTH-1:0] ID_MEM_barrier;
 
     wire [   `CSR_NUMBER_WIDTH-1:0] ID_CSR_number;
     wire [                    31:0] ID_CSR_read_data;
@@ -216,6 +216,9 @@ module mycpu_top (
     wire                            ID_CSR_use;
 
     wire [       `TLB_OP_WIDTH-1:0] ID_TLB_operation;
+
+    wire [ `CACHE_TARGET_WIDTH-1:0] ID_cache_target;
+    wire [     `CACHE_OP_WIDTH-1:0] ID_cache_operation;
 
     wire                            EXE_done;
     wire                            EXE_valid;
@@ -228,6 +231,7 @@ module mycpu_top (
 `endif
     wire [    `EXCEPTION_WIDTH-1:0] EXE_exception;
     wire                            EXE_ereturn;
+    wire                            EXE_idle;
     wire                            EXE_refetch;
     wire                            EXE_INT;
     wire                            EXE_PIL;
@@ -241,6 +245,7 @@ module mycpu_top (
     wire                            EXE_SYS;
     wire                            EXE_BRK;
     wire                            EXE_INE;
+    wire                            EXE_IPE;
     wire                            EXE_IF_TLBR;
     wire                            EXE_TLBR;
 
@@ -250,7 +255,6 @@ module mycpu_top (
     wire                            EXE_GPR_write;
     wire [                     4:0] EXE_GPR_write_num;
     wire [`GPR_WRITE_SRC_WIDTH-1:0] EXE_GPR_write_src;
-    wire [                    31:0] EXE_link;
     wire [                    31:0] EXE_imm;
     wire [                    31:0] EXE_forward_data;
 
@@ -262,30 +266,36 @@ module mycpu_top (
 
     wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write;
+    wire [      `MEM_BAR_WIDTH-1:0] EXE_MEM_barrier;
+    wire [                    31:0] EXE_MEM_paddr = data_paddr;
+    wire                            EXE_llbit;
 
 `ifdef CHIPLAB
-    wire [31:0] EXE_MEM_paddr = data_paddr;
     wire [31:0] EXE_CSR_read_data;
     wire [63:0] EXE_CSR_counter;
 `endif
-    wire [                 31:0] EXE_CSR_result;
-    wire                         EXE_CSR_write;
-    wire [`CSR_NUMBER_WIDTH-1:0] EXE_CSR_write_number;
-    wire [                 31:0] EXE_CSR_write_data;
+    wire [                   31:0] EXE_CSR_result;
+    wire                           EXE_CSR_write;
+    wire [  `CSR_NUMBER_WIDTH-1:0] EXE_CSR_write_number;
+    wire [                   31:0] EXE_CSR_write_data;
 
-    wire [    `TLB_OP_WIDTH-1:0] EXE_TLB_operation;
+    wire [      `TLB_OP_WIDTH-1:0] EXE_TLB_operation;
 
-    wire                         MEM_done;
-    wire                         MEM_valid;
-    wire                         MEM_ready;
-    wire                         MEM_to_WB_valid;
+    wire [`CACHE_TARGET_WIDTH-1:0] EXE_cache_target;
+    wire [    `CACHE_OP_WIDTH-1:0] EXE_cache_operation;
 
-    wire [                 31:0] MEM_PC;
+    wire                           MEM_done;
+    wire                           MEM_valid;
+    wire                           MEM_ready;
+    wire                           MEM_to_WB_valid;
+
+    wire [                   31:0] MEM_PC;
 `ifdef CHIPLAB
     wire [31:0] MEM_inst;
 `endif
     wire [    `EXCEPTION_WIDTH-1:0] MEM_exception;
     wire                            MEM_ereturn;
+    wire                            MEM_idle;
     wire                            MEM_refetch;
     wire                            MEM_INT;
     wire                            MEM_PIL;
@@ -299,6 +309,7 @@ module mycpu_top (
     wire                            MEM_SYS;
     wire                            MEM_BRK;
     wire                            MEM_INE;
+    wire                            MEM_IPE;
     wire                            MEM_IF_TLBR;
     wire                            MEM_EXE_TLBR;
 
@@ -317,10 +328,14 @@ module mycpu_top (
 
     wire [     `MEM_READ_WIDTH-1:0] MEM_MEM_read;
     wire [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write;
-    wire [                    31:0] MEM_MEM_result;
-
+    wire [      `MEM_BAR_WIDTH-1:0] MEM_MEM_barrier;
 `ifdef CHIPLAB
     wire [31:0] MEM_MEM_paddr;
+`endif
+    wire        MEM_llbit;
+    wire [31:0] MEM_MEM_result;
+
+`ifdef CHIPLAB
     wire [31:0] MEM_CSR_read_data;
     wire [63:0] MEM_CSR_counter;
 `endif
@@ -342,6 +357,7 @@ module mycpu_top (
 `endif
     wire [    `EXCEPTION_WIDTH-1:0] WB_exception;
     wire                            WB_ereturn;
+    wire                            WB_idle;
     wire                            WB_refetch;
     wire                            WB_INT;
     wire                            WB_PIL;
@@ -355,6 +371,7 @@ module mycpu_top (
     wire                            WB_SYS;
     wire                            WB_BRK;
     wire                            WB_INE;
+    wire                            WB_IPE;
     wire                            WB_IF_TLBR;
     wire                            WB_EXE_TLBR;
 
@@ -369,12 +386,17 @@ module mycpu_top (
 
     wire [                    31:0] WB_ALU_result;
 
+    wire [     `MEM_READ_WIDTH-1:0] WB_MEM_read;
+    wire [    `MEM_WRITE_WIDTH-1:0] WB_MEM_write;
 `ifdef CHIPLAB
-    wire [ `MEM_READ_WIDTH-1:0] WB_MEM_read;
-    wire [`MEM_WRITE_WIDTH-1:0] WB_MEM_write;
-    wire [                31:0] WB_MEM_paddr;
+    wire [31:0] WB_MEM_paddr;
 `endif
+    wire        WB_llbit;
     wire [31:0] WB_MEM_result;
+
+    wire        WB_llbit_write_enable;
+    wire        WB_llbit_write_data;
+
 `ifdef CHIPLAB
     wire [31:0] WB_CSR_read_data;
     wire [63:0] WB_CSR_counter;
@@ -455,10 +477,11 @@ module mycpu_top (
         .reset            (reset),
         .exception        (exception),
         .ereturn          (ereturn),
+        .idle             (idle),
+        .interupt         (interupt),
         .refetch          (refetch),
         .eentry           (eentry),
         .eraddr           (eraddr),
-        .rentry           (rentry),
         .rsource          (rsource),
         .bj_taken         (ID_bj_taken),
         .bj_stall         (ID_bj_stall),
@@ -517,9 +540,10 @@ module mycpu_top (
     ID_stage id_stage (
         .valid           (ID_valid),
         .inst            (ID_inst),
+        .plv             (PLV),
+        .PC              (ID_PC),
         .jump            (ID_jump),
         .branch          (ID_branch),
-        .PC              (ID_PC),
         .GPR_read_num1   (ID_GPR_read_num1),
         .rj_data         (ID_rj_data),
         .GPR_read_num2   (ID_GPR_read_num2),
@@ -534,12 +558,15 @@ module mycpu_top (
         .mul_div_unsigned(ID_mul_div_unsigned),
         .MEM_read        (ID_MEM_read),
         .MEM_write       (ID_MEM_write),
+        .MEM_barrier     (ID_MEM_barrier),
         .GPR_write       (ID_GPR_write),
         .GPR_write_num   (ID_GPR_write_num),
         .GPR_write_src   (ID_GPR_write_src),
         .CSR_write       (ID_CSR_write),
         .CSR_write_mask  (ID_CSR_write_mask),
         .TLB_operation   (ID_TLB_operation),
+        .cache_target    (ID_cache_target),
+        .cache_operation (ID_cache_operation),
         .GPR1_use        (ID_GPR1_use),
         .GPR2_use        (ID_GPR2_use),
         .GPR_new         (ID_GPR_new),
@@ -547,12 +574,13 @@ module mycpu_top (
         .bj_taken        (ID_bj_taken),
         .target_PC       (ID_target_PC),
         .imm             (ID_imm),
-        .link            (ID_link),
         .ereturn         (ID_ereturn),
+        .idle            (ID_idle),
         .refetch         (ID_refetch),
         .SYS             (ID_SYS),
         .BRK             (ID_BRK),
-        .INE             (ID_INE)
+        .INE             (ID_INE),
+        .IPE             (ID_IPE)
     );
 
     GPRF gpr_file (
@@ -573,12 +601,12 @@ module mycpu_top (
                          MEM_valid & ID_MEM_GPR2_A & |MEM_GPR_new[`GPR_NEW_MEM:`GPR_NEW_EXE] ?
                          MEM_forward_data : ID_GPR_read_data2;
 
-    assign ID_INT = request & ~ID_int_stall;
+    assign ID_INT = interupt & ~ID_int_stall;
 
     assign ID_exception = {
         1'b0,
         ID_IF_TLBR,
-        1'b0,
+        ID_IPE,
         ID_INE,
         ID_BRK,
         ID_SYS,
@@ -606,25 +634,33 @@ module mycpu_top (
     assign ID_MEM_GPR1_T = ID_GPR1_use & MEM_GPR_new[`GPR_NEW_WB];
     assign ID_MEM_GPR2_T = ID_GPR2_use & MEM_GPR_new[`GPR_NEW_WB];
 
-    assign ID_EXE_CSR = ID_CSR_use & EXE_CSR_write & ID_CSR_number == EXE_CSR_write_number;
-    assign ID_MEM_CSR = ID_CSR_use & MEM_CSR_write & ID_CSR_number == MEM_CSR_write_number;
-    assign ID_WB_CSR = ID_CSR_use & WB_CSR_write & ID_CSR_number == WB_CSR_write_number;
-
-    assign ID_EXE_TLB = ID_CSR_use & MEM_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
-    assign ID_MEM_TLB = ID_CSR_use & MEM_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
-    assign ID_WB_TLB = ID_CSR_use & WB_TLB_operation[`TLB_OP_SRCH] & ID_CSR_number == `CSR_TLBIDX;
+    assign ID_EXE_CSR = ID_CSR_use & EXE_CSR_write &
+                       (ID_CSR_number == EXE_CSR_write_number |
+                        ID_CSR_number == `CSR_PGD &
+                       (EXE_CSR_write_number == `CSR_BADV |
+                        EXE_CSR_write_number == `CSR_PGDL |
+                        EXE_CSR_write_number == `CSR_PGDH));
+    assign ID_MEM_CSR = ID_CSR_use & MEM_CSR_write &
+                       (ID_CSR_number == MEM_CSR_write_number |
+                        ID_CSR_number == `CSR_PGD &
+                       (MEM_CSR_write_number == `CSR_BADV |
+                        MEM_CSR_write_number == `CSR_PGDL |
+                        MEM_CSR_write_number == `CSR_PGDH));
+    assign ID_WB_CSR = ID_CSR_use & WB_CSR_write &
+                      (ID_CSR_number == WB_CSR_write_number |
+                       ID_CSR_number == `CSR_PGD &
+                      (WB_CSR_write_number == `CSR_BADV |
+                       WB_CSR_write_number == `CSR_PGDL |
+                       WB_CSR_write_number == `CSR_PGDH));
 
     assign ID_EXE_int = EXE_CSR_write &
-                       (EXE_CSR_write_number == `CSR_CRMD | EXE_CSR_write_number == `CSR_ECFG |
-                        EXE_CSR_write_number == `CSR_ECFG | EXE_CSR_write_number == `CSR_ESTAT |
+                       (EXE_CSR_write_number == `CSR_ECFG | EXE_CSR_write_number == `CSR_ESTAT |
                         EXE_CSR_write_number == `CSR_TCFG | EXE_CSR_write_number == `CSR_TICLR);
     assign ID_MEM_int = MEM_CSR_write &
-                       (MEM_CSR_write_number == `CSR_CRMD| MEM_CSR_write_number == `CSR_ECFG |
-                        MEM_CSR_write_number == `CSR_ECFG | MEM_CSR_write_number == `CSR_ESTAT |
+                       (MEM_CSR_write_number == `CSR_ECFG | MEM_CSR_write_number == `CSR_ESTAT |
                         MEM_CSR_write_number == `CSR_TCFG  | MEM_CSR_write_number == `CSR_TICLR);
     assign ID_WB_int  = WB_CSR_write &
-                       (WB_CSR_write_number == `CSR_CRMD | WB_CSR_write_number == `CSR_ECFG |
-                        WB_CSR_write_number == `CSR_ECFG | WB_CSR_write_number == `CSR_ESTAT |
+                       (WB_CSR_write_number == `CSR_ECFG | WB_CSR_write_number == `CSR_ESTAT |
                         WB_CSR_write_number == `CSR_TCFG | WB_CSR_write_number == `CSR_TICLR);
 
     assign ID_GPR_stall = EXE_valid & (ID_EXE_GPR1_A & ID_EXE_GPR1_T |
@@ -634,13 +670,19 @@ module mycpu_top (
 
     assign ID_CSR_stall = EXE_valid & ID_EXE_CSR | MEM_valid & ID_MEM_CSR | WB_valid & ID_WB_CSR;
 
-    assign ID_TLB_stall = EXE_valid & ID_EXE_TLB | MEM_valid & ID_MEM_TLB | WB_valid & ID_WB_TLB;
-
     assign ID_int_stall = EXE_valid & ID_EXE_int | MEM_valid & ID_MEM_int | WB_valid & ID_WB_int;
 
+    assign ID_barrier_stall = ID_MEM_barrier[`MEM_BAR_DATA] &
+                             (EXE_valid & (|EXE_MEM_read | |EXE_MEM_write) |
+                              MEM_valid & (|MEM_MEM_read | |MEM_MEM_write));
+
+    assign ID_data_stall = (|ID_MEM_read | |ID_MEM_write) &
+                           (EXE_valid & EXE_MEM_barrier[`MEM_BAR_DATA] |
+                            MEM_valid & MEM_MEM_barrier[`MEM_BAR_DATA]);
+
     // TODO: delay memory write
-    assign ID_flush_stall = EXE_valid & (|EXE_exception | EXE_ereturn | EXE_refetch) |
-                            MEM_valid & (|MEM_exception | MEM_ereturn | MEM_refetch);
+    assign ID_flush_stall = EXE_valid & (|EXE_exception | EXE_ereturn | | EXE_idle | EXE_refetch) |
+                            MEM_valid & (|MEM_exception | MEM_ereturn | | MEM_idle | MEM_refetch);
 
     assign ID_bj_stall = ID_valid & ID_jump & (EXE_valid & ID_EXE_GPR1_A &
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
@@ -650,7 +692,8 @@ module mycpu_top (
                         |EXE_GPR_new[`GPR_NEW_WB:`GPR_NEW_MEM] |
                          MEM_valid & (ID_MEM_GPR1_A | ID_MEM_GPR2_A) & MEM_GPR_new[`GPR_NEW_WB]);
 
-    assign ID_stall = ID_GPR_stall | ID_CSR_stall | ID_TLB_stall | ID_int_stall | ID_flush_stall;
+    assign ID_stall = ID_GPR_stall | ID_CSR_stall | ID_barrier_stall | ID_data_stall |
+                      ID_int_stall | ID_flush_stall;
 
     assign ID_done = ~ID_stall | |ID_exception;
 
@@ -668,7 +711,6 @@ module mycpu_top (
 `ifdef CHIPLAB
         .ID_inst             (ID_inst),
 `endif
-        .ID_link             (ID_link),
         .ID_imm              (ID_imm),
         .ID_rj_data          (ID_rj_data),
         .ID_rkd_data         (ID_rkd_data),
@@ -683,6 +725,7 @@ module mycpu_top (
         .ID_mul_div_unsigned (ID_mul_div_unsigned),
         .ID_MEM_read         (ID_MEM_read),
         .ID_MEM_write        (ID_MEM_write),
+        .ID_MEM_barrier      (ID_MEM_barrier),
         .ID_GPR_write        (ID_GPR_write),
         .ID_GPR_write_num    (ID_GPR_write_num),
         .ID_GPR_write_src    (ID_GPR_write_src),
@@ -690,7 +733,10 @@ module mycpu_top (
         .ID_CSR_write_number (ID_CSR_number),
         .ID_CSR_write_mask   (ID_CSR_write_mask),
         .ID_TLB_operation    (ID_TLB_operation),
+        .ID_cache_target     (ID_cache_target),
+        .ID_cache_operation  (ID_cache_operation),
         .ID_ereturn          (ID_ereturn),
+        .ID_idle             (ID_idle),
         .ID_refetch          (ID_refetch),
         .ID_GPR_new          (ID_GPR_new),
         .ID_INT              (ID_INT),
@@ -700,12 +746,12 @@ module mycpu_top (
         .ID_SYS              (ID_SYS),
         .ID_BRK              (ID_BRK),
         .ID_INE              (ID_INE),
+        .ID_IPE              (ID_IPE),
         .ID_IF_TLBR          (ID_IF_TLBR),
         .EXE_PC              (EXE_PC),
 `ifdef CHIPLAB
         .EXE_inst            (EXE_inst),
 `endif
-        .EXE_link            (EXE_link),
         .EXE_imm             (EXE_imm),
         .EXE_rj_data         (EXE_rj_data),
         .EXE_rkd_data        (EXE_rkd_data),
@@ -720,6 +766,7 @@ module mycpu_top (
         .EXE_mul_div_unsigned(EXE_mul_div_unsigned),
         .EXE_MEM_read        (EXE_MEM_read),
         .EXE_MEM_write       (EXE_MEM_write),
+        .EXE_MEM_barrier     (EXE_MEM_barrier),
         .EXE_GPR_write       (EXE_GPR_write),
         .EXE_GPR_write_num   (EXE_GPR_write_num),
         .EXE_GPR_write_src   (EXE_GPR_write_src),
@@ -727,7 +774,10 @@ module mycpu_top (
         .EXE_CSR_write_number(EXE_CSR_write_number),
         .EXE_CSR_write_mask  (EXE_CSR_write_mask),
         .EXE_TLB_operation   (EXE_TLB_operation),
+        .EXE_cache_target    (EXE_cache_target),
+        .EXE_cache_operation (EXE_cache_operation),
         .EXE_ereturn         (EXE_ereturn),
+        .EXE_idle            (EXE_idle),
         .EXE_refetch         (EXE_refetch),
         .EXE_GPR_new         (EXE_GPR_new),
         .EXE_INT             (EXE_INT),
@@ -737,6 +787,7 @@ module mycpu_top (
         .EXE_SYS             (EXE_SYS),
         .EXE_BRK             (EXE_BRK),
         .EXE_INE             (EXE_INE),
+        .EXE_IPE             (EXE_IPE),
         .EXE_IF_TLBR         (EXE_IF_TLBR)
     );
 
@@ -768,8 +819,11 @@ module mycpu_top (
         .div_unsigned     (EXE_mul_div_unsigned),
         .MEM_read         (EXE_MEM_read),
         .MEM_write        (EXE_MEM_write),
+        .llbit            (EXE_llbit),
         .CSR_read_data    (EXE_CSR_result),
         .CSR_write_mask   (EXE_CSR_write_mask),
+        .cache_target     (EXE_cache_target),
+        .cache_operation  (EXE_cache_operation),
         .CSR_write_data   (EXE_CSR_write_data),
         .ALU_result       (EXE_ALU_result),
         .ALE              (EXE_ALE)
@@ -786,7 +840,7 @@ module mycpu_top (
     assign EXE_exception = {
         EXE_TLBR,
         EXE_IF_TLBR,
-        1'b0,
+        EXE_IPE,
         EXE_INE,
         EXE_BRK,
         EXE_SYS,
@@ -802,8 +856,7 @@ module mycpu_top (
         EXE_INT
     };
 
-    assign EXE_forward_data = {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LINK]}} & EXE_link |
-                              {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LUI]}} & EXE_imm |
+    assign EXE_forward_data = {32{EXE_GPR_write_src[`GPR_WRITE_SRC_LUI]}} & EXE_imm |
                               {32{EXE_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & EXE_CSR_result;
 
     MEM_reg mem_reg (
@@ -831,9 +884,11 @@ module mycpu_top (
         .EXE_ALU_result      (EXE_ALU_result),
         .EXE_MEM_read        (EXE_MEM_read),
         .EXE_MEM_write       (EXE_MEM_write),
+        .EXE_MEM_barrier     (EXE_MEM_barrier),
 `ifdef CHIPLAB
         .EXE_MEM_paddr       (EXE_MEM_paddr),
 `endif
+        .EXE_llbit           (EXE_llbit),
         .EXE_GPR_write       (EXE_GPR_write),
         .EXE_GPR_write_num   (EXE_GPR_write_num),
         .EXE_GPR_write_src   (EXE_GPR_write_src),
@@ -842,6 +897,7 @@ module mycpu_top (
         .EXE_CSR_write_data  (EXE_CSR_write_data),
         .EXE_TLB_operation   (EXE_TLB_operation),
         .EXE_ereturn         (EXE_ereturn),
+        .EXE_idle            (EXE_idle),
         .EXE_refetch         (EXE_refetch),
         .EXE_GPR_new         (EXE_GPR_new),
         .EXE_INT             (EXE_INT),
@@ -856,6 +912,7 @@ module mycpu_top (
         .EXE_SYS             (EXE_SYS),
         .EXE_BRK             (EXE_BRK),
         .EXE_INE             (EXE_INE),
+        .EXE_IPE             (EXE_IPE),
         .EXE_IF_TLBR         (EXE_IF_TLBR),
         .EXE_TLBR            (EXE_TLBR),
         .MEM_PC              (MEM_PC),
@@ -873,9 +930,11 @@ module mycpu_top (
         .MEM_EXE_ALU_result  (MEM_EXE_ALU_result),
         .MEM_MEM_read        (MEM_MEM_read),
         .MEM_MEM_write       (MEM_MEM_write),
+        .MEM_MEM_barrier     (MEM_MEM_barrier),
 `ifdef CHIPLAB
         .MEM_MEM_paddr       (MEM_MEM_paddr),
 `endif
+        .MEM_llbit           (MEM_llbit),
         .MEM_GPR_write       (MEM_GPR_write),
         .MEM_GPR_write_num   (MEM_GPR_write_num),
         .MEM_GPR_write_src   (MEM_GPR_write_src),
@@ -883,8 +942,9 @@ module mycpu_top (
         .MEM_CSR_write_number(MEM_CSR_write_number),
         .MEM_CSR_write_data  (MEM_CSR_write_data),
         .MEM_TLB_operation   (MEM_TLB_operation),
-        .MEM_refetch         (MEM_refetch),
         .MEM_ereturn         (MEM_ereturn),
+        .MEM_idle            (MEM_idle),
+        .MEM_refetch         (MEM_refetch),
         .MEM_GPR_new         (MEM_GPR_new),
         .MEM_INT             (MEM_INT),
         .MEM_PIL             (MEM_PIL),
@@ -898,6 +958,7 @@ module mycpu_top (
         .MEM_SYS             (MEM_SYS),
         .MEM_BRK             (MEM_BRK),
         .MEM_INE             (MEM_INE),
+        .MEM_IPE             (MEM_IPE),
         .MEM_IF_TLBR         (MEM_IF_TLBR),
         .MEM_EXE_TLBR        (MEM_EXE_TLBR)
     );
@@ -912,6 +973,7 @@ module mycpu_top (
         .EXE_ALU_result   (MEM_EXE_ALU_result),
         .MEM_read         (MEM_MEM_read),
         .MEM_write        (MEM_MEM_write),
+        .llbit            (MEM_llbit),
         .ALU_result       (MEM_ALU_result),
         .MEM_result       (MEM_MEM_result)
     );
@@ -919,7 +981,7 @@ module mycpu_top (
     assign MEM_exception = {
         MEM_EXE_TLBR,
         MEM_IF_TLBR,
-        1'b0,
+        MEM_IPE,
         MEM_INE,
         MEM_BRK,
         MEM_SYS,
@@ -936,7 +998,8 @@ module mycpu_top (
     };
 
     assign MEM_forward_data = {32{MEM_GPR_write_src[`GPR_WRITE_SRC_CSR]}} & MEM_CSR_result |
-                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result;
+                              {32{MEM_GPR_write_src[`GPR_WRITE_SRC_ALU]}} & MEM_ALU_result |
+                              {31'b0, MEM_GPR_write_src[`GPR_WRITE_SRC_COND] & MEM_llbit};
 
     WB_reg wb_reg (
         .clk                 (clk),
@@ -958,11 +1021,12 @@ module mycpu_top (
 `endif
         .MEM_CSR_result      (MEM_CSR_result),
         .MEM_ALU_result      (MEM_ALU_result),
-`ifdef CHIPLAB
         .MEM_MEM_read        (MEM_MEM_read),
         .MEM_MEM_write       (MEM_MEM_write),
+`ifdef CHIPLAB
         .MEM_MEM_paddr       (MEM_MEM_paddr),
 `endif
+        .MEM_llbit           (MEM_llbit),
         .MEM_MEM_result      (MEM_MEM_result),
         .MEM_GPR_write       (MEM_GPR_write),
         .MEM_GPR_write_num   (MEM_GPR_write_num),
@@ -972,6 +1036,7 @@ module mycpu_top (
         .MEM_CSR_write_data  (MEM_CSR_write_data),
         .MEM_TLB_operation   (MEM_TLB_operation),
         .MEM_ereturn         (MEM_ereturn),
+        .MEM_idle            (MEM_idle),
         .MEM_refetch         (MEM_refetch),
         .MEM_INT             (MEM_INT),
         .MEM_PIL             (MEM_PIL),
@@ -985,6 +1050,7 @@ module mycpu_top (
         .MEM_SYS             (MEM_SYS),
         .MEM_BRK             (MEM_BRK),
         .MEM_INE             (MEM_INE),
+        .MEM_IPE             (MEM_IPE),
         .MEM_IF_TLBR         (MEM_IF_TLBR),
         .MEM_EXE_TLBR        (MEM_EXE_TLBR),
         .WB_PC               (WB_PC),
@@ -999,11 +1065,12 @@ module mycpu_top (
 `endif
         .WB_CSR_result       (WB_CSR_result),
         .WB_ALU_result       (WB_ALU_result),
-`ifdef CHIPLAB
-        .WB_MEM_read         (WB_MEM_read),
         .WB_MEM_write        (WB_MEM_write),
+`ifdef CHIPLAB
         .WB_MEM_paddr        (WB_MEM_paddr),
 `endif
+        .WB_llbit            (WB_llbit),
+        .WB_MEM_read         (WB_MEM_read),
         .WB_MEM_result       (WB_MEM_result),
         .WB_GPR_write        (WB_GPR_write),
         .WB_GPR_write_num    (WB_GPR_write_num),
@@ -1013,6 +1080,7 @@ module mycpu_top (
         .WB_CSR_write_data   (WB_CSR_write_data),
         .WB_TLB_operation    (WB_TLB_operation),
         .WB_ereturn          (WB_ereturn),
+        .WB_idle             (WB_idle),
         .WB_refetch          (WB_refetch),
         .WB_INT              (WB_INT),
         .WB_PIL              (WB_PIL),
@@ -1026,32 +1094,38 @@ module mycpu_top (
         .WB_SYS              (WB_SYS),
         .WB_BRK              (WB_BRK),
         .WB_INE              (WB_INE),
+        .WB_IPE              (WB_IPE),
         .WB_IF_TLBR          (WB_IF_TLBR),
         .WB_EXE_TLBR         (WB_EXE_TLBR)
     );
 
     WB_stage wb_stage (
-        .valid            (WB_valid),
-        .done             (WB_done),
-        .exception        (WB_exception),
-        .ALU_result       (WB_ALU_result),
-        .MEM_result       (WB_MEM_result),
-        .CSR_result       (WB_CSR_result),
-        .GPR_write        (WB_GPR_write),
-        .GPR_write_src    (WB_GPR_write_src),
-        .CSR_write        (WB_CSR_write),
-        .TLB_operation    (WB_TLB_operation),
-        .GPR_write_enable (WB_GPR_write_enable),
-        .GPR_write_data   (WB_GPR_write_data),
-        .CSR_write_enable (WB_CSR_write_enable),
-        .CSR_TLB_operation(WB_CSR_TLB_operation),
-        .TLB_TLB_operation(WB_TLB_TLB_operation)
+        .valid             (WB_valid),
+        .done              (WB_done),
+        .exception         (WB_exception),
+        .CSR_result        (WB_CSR_result),
+        .ALU_result        (WB_ALU_result),
+        .llbit             (WB_llbit),
+        .MEM_result        (WB_MEM_result),
+        .MEM_read          (WB_MEM_read),
+        .MEM_write         (WB_MEM_write),
+        .GPR_write         (WB_GPR_write),
+        .GPR_write_src     (WB_GPR_write_src),
+        .CSR_write         (WB_CSR_write),
+        .TLB_operation     (WB_TLB_operation),
+        .llbit_write_enable(WB_llbit_write_enable),
+        .llbit_write_data  (WB_llbit_write_data),
+        .GPR_write_enable  (WB_GPR_write_enable),
+        .GPR_write_data    (WB_GPR_write_data),
+        .CSR_write_enable  (WB_CSR_write_enable),
+        .CSR_TLB_operation (WB_CSR_TLB_operation),
+        .TLB_TLB_operation (WB_TLB_TLB_operation)
     );
 
     assign WB_exception = {
         WB_EXE_TLBR,
         WB_IF_TLBR,
-        1'b0,
+        WB_IPE,
         WB_INE,
         WB_BRK,
         WB_SYS,
@@ -1072,45 +1146,48 @@ module mycpu_top (
     CSRF #(
         .TLB_ENTRIES(`TLB_ENTRIES)
     ) csr_file (
-        .clk          (clk),
-        .reset        (reset),
-        .read_number  (ID_CSR_number),
-        .read_data    (ID_CSR_read_data),
-        .write_number (WB_CSR_write_number),
-        .write_enable (WB_CSR_write_enable),
-        .write_data   (WB_CSR_write_data),
-        .counter      (ID_CSR_counter),
-        .da           (DA),
-        .pg           (PG),
-        .asid         (ASID),
-        .plv          (PLV),
-        .plv0         (PLV0),
-        .pseg0        (PSEG0),
-        .vseg0        (VSEG0),
-        .plv1         (PLV1),
-        .pseg1        (PSEG1),
-        .vseg1        (VSEG1),
-        .TLB_operation(WB_CSR_TLB_operation),
-        .TLB_s_hit    (TLB_s_hit),
-        .TLB_s_index  (TLB_s_index),
-        .TLB_r_hi     (TLB_r_hi),
-        .TLB_r_lo0    (TLB_r_lo0),
-        .TLB_r_lo1    (TLB_r_lo1),
-        .TLB_rw_index (TLB_rw_index),
-        .TLB_sw_hi    (TLB_sw_hi),
-        .TLB_w_lo0    (TLB_w_lo0),
-        .TLB_w_lo1    (TLB_w_lo1),
-        .TLB_f_index  (TLB_f_index),
-        .hw_int       (intrpt),
-        .ip_int       (1'b0),
-        .interupt     (request),
-        .exception    (exception),
-        .ereturn      (ereturn),
-        .PC           (PC),
-        .vaddr        (WB_ALU_result),
-        .eentry       (eentry),
-        .eraddr       (eraddr),
-        .rentry       (rentry)
+        .clk               (clk),
+        .reset             (reset),
+        .read_number       (ID_CSR_number),
+        .read_data         (ID_CSR_read_data),
+        .write_number      (WB_CSR_write_number),
+        .write_enable      (WB_CSR_write_enable),
+        .write_data        (WB_CSR_write_data),
+        .counter           (ID_CSR_counter),
+        .da                (DA),
+        .pg                (PG),
+        .asid              (ASID),
+        .plv               (PLV),
+        .plv0              (PLV0),
+        .pseg0             (PSEG0),
+        .vseg0             (VSEG0),
+        .plv1              (PLV1),
+        .pseg1             (PSEG1),
+        .vseg1             (VSEG1),
+        .TLB_operation     (WB_CSR_TLB_operation),
+        .TLB_s_hit         (TLB_s_hit),
+        .TLB_s_index       (TLB_s_index),
+        .TLB_r_hi          (TLB_r_hi),
+        .TLB_r_lo0         (TLB_r_lo0),
+        .TLB_r_lo1         (TLB_r_lo1),
+        .TLB_rw_index      (TLB_rw_index),
+        .TLB_sw_hi         (TLB_sw_hi),
+        .TLB_w_lo0         (TLB_w_lo0),
+        .TLB_w_lo1         (TLB_w_lo1),
+        .TLB_f_index       (TLB_f_index),
+        .hw_int            (intrpt),
+        .ip_int            (1'b0),
+        .llbit             (EXE_llbit),
+        .paddr             (EXE_MEM_paddr),
+        .llbit_write_enable(WB_llbit_write_enable),
+        .llbit_write_data  (WB_llbit_write_data),
+        .interupt          (interupt),
+        .exception         (exception),
+        .ereturn           (ereturn),
+        .PC                (PC),
+        .vaddr             (WB_ALU_result),
+        .eentry            (eentry),
+        .eraddr            (eraddr)
     );
 
     MMU #(
@@ -1160,9 +1237,10 @@ module mycpu_top (
     assign PC                = WB_PC;
     assign exception         = {`EXCEPTION_WIDTH{WB_valid}} & WB_exception;
     assign ereturn           = WB_valid & WB_ereturn;
+    assign idle              = WB_valid & WB_idle & ~WB_exception[`EXCEPTION_IPE];
     assign refetch           = WB_valid & WB_refetch;
     assign rsource           = WB_PC;
-    assign flush             = WB_valid & (|WB_exception | WB_ereturn | WB_refetch);
+    assign flush             = WB_valid & (|WB_exception | WB_ereturn | WB_idle | WB_refetch);
 
     assign debug_wb_pc       = WB_PC;
     assign debug_wb_rf_we    = {4{WB_GPR_write_enable}};

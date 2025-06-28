@@ -42,14 +42,18 @@ module CSRF #(
     input  wire [                      7:0] hw_int,
     input  wire                             ip_int,
     output wire                             interupt,
+    // ll / sc signals
+    input  wire [                     31:0] paddr,
+    output wire                             llbit,
+    input  wire                             llbit_write_enable,
+    input  wire                             llbit_write_data,
     // exception signals
     input  wire [     `EXCEPTION_WIDTH-1:0] exception,
     input  wire                             ereturn,
     input  wire [                     31:0] PC,
     input  wire [                     31:0] vaddr,
     output wire [                     31:0] eentry,
-    output wire [                     31:0] eraddr,
-    output wire [                     31:0] rentry
+    output wire [                     31:0] eraddr
 );
     reg  [               31:0] CRMD;
     reg  [               31:0] PRMD;
@@ -63,7 +67,11 @@ module CSRF #(
     reg  [               31:0] TLBELO0;
     reg  [               31:0] TLBELO1;
     reg  [               31:0] ASID;
+    reg  [               31:0] PGDL;
+    reg  [               31:0] PGDH;
+    wire [               31:0] PGD;
     reg  [               31:0] SAVE      [3:0];
+    reg  [               31:0] LLBCTL;
     reg  [               31:0] TID;
     reg  [               31:0] TCFG;
     reg  [               31:0] TVAL;
@@ -71,23 +79,34 @@ module CSRF #(
     reg  [               31:0] TLBRENTRY;
     reg  [               31:0] DMW       [1:0];
 
+    wire [   `ETYPE_WIDTH-1:0] etype;
     wire [   `ECODE_WIDTH-1:0] ecode;
     wire [`ESUBCODE_WIDTH-1:0] esubcode;
 
-    assign ecode    = exception[`EXCEPTION_INT] ? `ECODE_INT :
-                      exception[`EXCEPTION_ADEF] ? `ECODE_ADEF :
-                      exception[`EXCEPTION_PIF] ? `ECODE_PIF :
-                      exception[`EXCEPTION_F_PPI] ? `ECODE_PPI :
-                      exception[`EXCEPTION_F_TLBR] ? `ECODE_TLBR :
-                      exception[`EXCEPTION_SYS] ? `ECODE_SYS  :
-                      exception[`EXCEPTION_BRK] ? `ECODE_BRK  :
-                      exception[`EXCEPTION_INE] ? `ECODE_INE  :
-                      exception[`EXCEPTION_ALE] ? `ECODE_ALE  :
-                      exception[`EXCEPTION_PIL] ? `ECODE_PIL :
-                      exception[`EXCEPTION_PIS] ? `ECODE_PIS :
-                      exception[`EXCEPTION_PME] ? `ECODE_PME :
-                      exception[`EXCEPTION_M_PPI] ? `ECODE_PPI :
-                      exception[`EXCEPTION_M_TLBR] ? `ECODE_TLBR : `ECODE_WIDTH'b0;
+    assign etype = exception[`EXCEPTION_INT] ? 6'd1 << `ETYPE_INT :
+                   exception[`EXCEPTION_ADEF] ? 6'd1 << `ETYPE_FETCH_ADEF :
+                   exception[`EXCEPTION_PIF] | exception[`EXCEPTION_F_PPI] |
+                   exception[`EXCEPTION_F_TLBR] ? 6'd1 << `ETYPE_FETCH_TLB :
+                  |exception[`EXCEPTION_IPE:`EXCEPTION_SYS] ? 6'd1 << `ETYPE_DECODE :
+                   exception[`EXCEPTION_ALE] ? 6'd1 << `ETYPE_EXECUTE_ALE :
+                  |exception[`EXCEPTION_PIS:`EXCEPTION_PIL] | exception[`EXCEPTION_PME] |
+                   exception[`EXCEPTION_M_PPI] | exception[`EXCEPTION_M_TLBR] ?
+                   6'd1 << `ETYPE_EXECUTE_TLB : `ETYPE_WIDTH'b0;
+    assign ecode = exception[`EXCEPTION_INT] ? `ECODE_INT :
+                   exception[`EXCEPTION_ADEF] ? `ECODE_ADEF :
+                   exception[`EXCEPTION_PIF] ? `ECODE_PIF :
+                   exception[`EXCEPTION_F_PPI] ? `ECODE_PPI :
+                   exception[`EXCEPTION_F_TLBR] ? `ECODE_TLBR :
+                   exception[`EXCEPTION_SYS] ? `ECODE_SYS  :
+                   exception[`EXCEPTION_BRK] ? `ECODE_BRK  :
+                   exception[`EXCEPTION_INE] ? `ECODE_INE  :
+                   exception[`EXCEPTION_IPE] ? `ECODE_IPE  :
+                   exception[`EXCEPTION_ALE] ? `ECODE_ALE  :
+                   exception[`EXCEPTION_PIL] ? `ECODE_PIL :
+                   exception[`EXCEPTION_PIS] ? `ECODE_PIS :
+                   exception[`EXCEPTION_PME] ? `ECODE_PME :
+                   exception[`EXCEPTION_M_PPI] ? `ECODE_PPI :
+                   exception[`EXCEPTION_M_TLBR] ? `ECODE_TLBR : `ECODE_WIDTH'b0;
     assign esubcode = {8'b0, exception[`EXCEPTION_ADEM]};
 
     StableCounter stable_counter (
@@ -107,7 +126,8 @@ module CSRF #(
         end else if (|exception) begin
             CRMD[`CSR_CRMD_PLV] <= 2'b0;
             CRMD[`CSR_CRMD_IE]  <= 1'b0;
-            if (|exception[`EXCEPTION_TLBR]) begin
+            if (etype[`ETYPE_FETCH_TLB] & exception[`EXCEPTION_F_TLBR] |
+                etype[`ETYPE_EXECUTE_TLB] & exception[`EXCEPTION_M_TLBR]) begin
                 CRMD[`CSR_CRMD_DA] <= 1'b1;
                 CRMD[`CSR_CRMD_PG] <= 1'b0;
             end
@@ -213,12 +233,11 @@ module CSRF #(
         TLBEHI[`CSR_TLBEHI_0] <= `CSR_TLBEHI_0_WIDTH'b0;
         if (write_enable & write_number == `CSR_TLBEHI) begin
             TLBEHI[`CSR_TLBEHI_VPPN] <= write_data[`CSR_TLBEHI_VPPN];
-        end else if (|exception[`EXCEPTION_M_PPI:`EXCEPTION_PIL] |
-                     |exception[`EXCEPTION_TLBR]) begin
-            TLBEHI[`CSR_TLBEHI_VPPN] <= (exception[`EXCEPTION_PIF] |
-                                         exception[`EXCEPTION_F_PPI] |
-                                         exception[`EXCEPTION_F_TLBR]) ? PC[`CSR_TLBEHI_VPPN] :
-                                         vaddr[`CSR_TLBEHI_VPPN];
+        end else if (etype[`ETYPE_FETCH_TLB] | etype[`ETYPE_EXECUTE_TLB]) begin
+            TLBEHI[`CSR_TLBEHI_VPPN] <= exception[`EXCEPTION_PIF] |
+                                        exception[`EXCEPTION_F_PPI] |
+                                        exception[`EXCEPTION_F_TLBR] ? PC[`CSR_TLBEHI_VPPN] :
+                                        vaddr[`CSR_TLBEHI_VPPN];
         end else if (TLB_operation[`TLB_OP_READ]) begin
             if (TLB_r_hi[`TLBEHI_E]) begin
                 TLBEHI[`CSR_TLBEHI_VPPN] <= TLB_r_hi[`TLBEHI_VPPN];
@@ -302,8 +321,24 @@ module CSRF #(
     end
 
     always @(posedge clk) begin
-        if (|exception[`EXCEPTION_ADEF:`EXCEPTION_PIL] |
-             exception[`EXCEPTION_ALE] | |exception[`EXCEPTION_TLBR] ) begin
+        PGDL[`CSR_PGDL_0] <= `CSR_PGDL_0_WIDTH'b0;
+        if (write_enable & write_number == `CSR_PGDL) begin
+            PGDL[`CSR_PGDL_BASE] <= write_data[`CSR_PGDL_BASE];
+        end
+    end
+
+    always @(posedge clk) begin
+        PGDH[`CSR_PGDH_0] <= `CSR_PGDH_0_WIDTH'b0;
+        if (write_enable & write_number == `CSR_PGDH) begin
+            PGDH[`CSR_PGDH_BASE] <= write_data[`CSR_PGDH_BASE];
+        end
+    end
+
+    assign PGD = BADV[31] ? PGDH : PGDL;
+
+    always @(posedge clk) begin
+        if (etype[`ETYPE_FETCH_ADEF] | etype[`ETYPE_FETCH_TLB] |
+            etype[`ETYPE_EXECUTE_ALE] | etype[`ETYPE_EXECUTE_TLB] ) begin
             BADV[`CSR_BADV_VADDR] <= (exception[`EXCEPTION_PIF] |
                                       exception[`EXCEPTION_F_PPI] |
                                       exception[`EXCEPTION_ADEF] |
@@ -336,6 +371,33 @@ module CSRF #(
         end
     end
 
+    reg [31:2] lladdr;
+    always @(posedge clk) begin
+        if (reset) begin
+            LLBCTL[`CSR_LLBCTL_ROLLB] <= 1'b0;
+            LLBCTL[`CSR_LLBCTL_KLO]   <= 1'b0;
+            lladdr                    <= 30'b0;
+        end else if (ereturn) begin
+            if (~LLBCTL[`CSR_LLBCTL_KLO]) begin
+                LLBCTL[`CSR_LLBCTL_ROLLB] <= 1'b0;
+            end
+            LLBCTL[`CSR_LLBCTL_KLO] <= 1'b0;
+        end else if (llbit_write_enable) begin
+            LLBCTL[`CSR_LLBCTL_ROLLB] <= llbit_write_data;
+            if (llbit_write_data) begin
+                lladdr <= paddr[31:2];
+            end
+        end else if (write_enable & write_number == `CSR_LLBCTL) begin
+            if (write_data[`CSR_LLBCTL_WCLLB]) begin
+                LLBCTL[`CSR_LLBCTL_ROLLB] <= 1'b0;
+            end
+            LLBCTL[`CSR_LLBCTL_KLO] <= write_data[`CSR_LLBCTL_KLO];
+        end
+        LLBCTL[`CSR_LLBCTL_WCLLB] <= 1'b0;
+        LLBCTL[`CSR_LLBCTL_0]     <= `CSR_LLBCTL_0_WIDTH'b0;
+    end
+    assign llbit = LLBCTL[`CSR_LLBCTL_ROLLB] & lladdr == paddr[31:2];
+
     always @(posedge clk) begin
         if (reset) begin
             TID[`CSR_TID_TID] <= {{(32 - `COREID_WIDTH) {1'b0}}, `COREID};
@@ -348,9 +410,7 @@ module CSRF #(
         if (reset) begin
             TCFG[`CSR_TCFG_EN] <= 1'b0;
         end else if (write_enable & write_number == `CSR_TCFG) begin
-            TCFG[`CSR_TCFG_EN] <= write_data[`CSR_TCFG_EN];
-        end
-        if (write_enable & write_number == `CSR_TCFG) begin
+            TCFG[`CSR_TCFG_EN]       <= write_data[`CSR_TCFG_EN];
             TCFG[`CSR_TCFG_PERIODIC] <= write_data[`CSR_TCFG_PERIODIC];
             TCFG[`CSR_TCFG_INITVAL]  <= write_data[`CSR_TCFG_INITVAL];
         end
@@ -359,8 +419,12 @@ module CSRF #(
     always @(posedge clk) begin
         if (reset) begin
             TVAL[`CSR_TVAL_TVAL] <= `CSR_TVAL_TVAL_INIT;
-        end else if (write_enable & write_number == `CSR_TCFG && write_data[`CSR_TCFG_EN]) begin
-            TVAL[`CSR_TVAL_TVAL] <= {write_data[`CSR_TCFG_INITVAL], 2'b0};
+        end else if (write_enable & write_number == `CSR_TCFG) begin
+            if (write_data[`CSR_TCFG_EN]) begin
+                TVAL[`CSR_TVAL_TVAL] <= {write_data[`CSR_TCFG_INITVAL], 2'b0};
+            end else begin
+                TVAL[`CSR_TVAL_TVAL] <= 32'hffffffff;
+            end
         end else if (TCFG[`CSR_TCFG_EN] & ~&TVAL[`CSR_TVAL_TVAL]) begin
             if (~|TVAL[`CSR_TVAL_TVAL] & TCFG[`CSR_TCFG_PERIODIC]) begin
                 TVAL[`CSR_TVAL_TVAL] <= {TCFG[`CSR_TCFG_INITVAL], 2'b0};
@@ -383,7 +447,10 @@ module CSRF #(
         DMW[0][`CSR_DMW_0_LO] <= `CSR_DMW_0_LO_WIDTH'b0;
         DMW[0][`CSR_DMW_0_MD] <= `CSR_DMW_0_MD_WIDTH'b0;
         DMW[0][`CSR_DMW_0_HI] <= `CSR_DMW_0_HI_WIDTH'b0;
-        if (write_enable && write_number == `CSR_DMW0) begin
+        if (reset) begin
+            DMW[0][`CSR_DMW_PLV0] <= 1'b0;
+            DMW[0][`CSR_DMW_PLV3] <= 1'b0;
+        end else if (write_enable && write_number == `CSR_DMW0) begin
             DMW[0][`CSR_DMW_PLV0] <= write_data[`CSR_DMW_PLV0];
             DMW[0][`CSR_DMW_PLV3] <= write_data[`CSR_DMW_PLV3];
             DMW[0][`CSR_DMW_MAT]  <= write_data[`CSR_DMW_MAT];
@@ -393,7 +460,10 @@ module CSRF #(
         DMW[1][`CSR_DMW_0_LO] <= `CSR_DMW_0_LO_WIDTH'b0;
         DMW[1][`CSR_DMW_0_MD] <= `CSR_DMW_0_MD_WIDTH'b0;
         DMW[1][`CSR_DMW_0_HI] <= `CSR_DMW_0_HI_WIDTH'b0;
-        if (write_enable && write_number == `CSR_DMW1) begin
+        if (reset) begin
+            DMW[0][`CSR_DMW_PLV0] <= 1'b0;
+            DMW[0][`CSR_DMW_PLV3] <= 1'b0;
+        end else if (write_enable && write_number == `CSR_DMW1) begin
             DMW[1][`CSR_DMW_PLV0] <= write_data[`CSR_DMW_PLV0];
             DMW[1][`CSR_DMW_PLV3] <= write_data[`CSR_DMW_PLV3];
             DMW[1][`CSR_DMW_MAT]  <= write_data[`CSR_DMW_MAT];
@@ -414,10 +484,14 @@ module CSRF #(
                        {32{read_number == `CSR_TLBELO0}} & TLBELO0 |
                        {32{read_number == `CSR_TLBELO1}} & TLBELO1 |
                        {32{read_number == `CSR_ASID}} & ASID |
+                       {32{read_number == `CSR_PGDL}} & PGDL |
+                       {32{read_number == `CSR_PGDH}} & PGDH |
+                       {32{read_number == `CSR_PGD}} & PGD |
                        {32{read_number == `CSR_SAVE0}} & SAVE[0] |
                        {32{read_number == `CSR_SAVE1}} & SAVE[1] |
                        {32{read_number == `CSR_SAVE2}} & SAVE[2] |
                        {32{read_number == `CSR_SAVE3}} & SAVE[3] |
+                       {32{read_number == `CSR_LLBCTL}} & LLBCTL |
                        {32{read_number == `CSR_TID}} & TID |
                        {32{read_number == `CSR_TCFG}} & TCFG |
                        {32{read_number == `CSR_TVAL}} & TVAL |
@@ -464,12 +538,12 @@ module CSRF #(
         .in (DMW[1][`CSR_DMW_PLV]),
         .out(plv1)
     );
-    assign pseg1    = DMW[1][`CSR_DMW_PSEG];
-    assign vseg1    = DMW[1][`CSR_DMW_VSEG];
+    assign pseg1 = DMW[1][`CSR_DMW_PSEG];
+    assign vseg1 = DMW[1][`CSR_DMW_VSEG];
 
     assign interupt = |(ESTAT[`CSR_ESTAT_IS] & ECFG[`CSR_ECFG_LIE]) & CRMD[`CSR_CRMD_IE];
 
-    assign eentry   = EENTRY;
-    assign eraddr   = ERA;
-    assign rentry   = TLBRENTRY;
+    assign eentry   = etype[`ETYPE_FETCH_TLB] & exception[`EXCEPTION_F_TLBR] |
+                      etype[`ETYPE_EXECUTE_TLB] & exception[`EXCEPTION_M_TLBR] ? TLBRENTRY : EENTRY;
+    assign eraddr = ERA;
 endmodule

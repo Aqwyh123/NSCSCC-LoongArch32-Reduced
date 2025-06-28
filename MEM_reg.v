@@ -28,9 +28,11 @@ module MEM_reg (
     input  wire [                    31:0] EXE_ALU_result,
     input  wire [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
+    input  wire [      `MEM_BAR_WIDTH-1:0] EXE_MEM_barrier,
 `ifdef CHIPLAB
     input  wire [                    31:0] EXE_MEM_paddr,
 `endif
+    input  wire                            EXE_llbit,
     input  wire                            EXE_GPR_write,
     input  wire [                     4:0] EXE_GPR_write_num,
     input  wire [`GPR_WRITE_SRC_WIDTH-1:0] EXE_GPR_write_src,
@@ -39,6 +41,7 @@ module MEM_reg (
     input  wire [                    31:0] EXE_CSR_write_data,
     input  wire [       `TLB_OP_WIDTH-1:0] EXE_TLB_operation,
     input  wire                            EXE_ereturn,
+    input  wire                            EXE_idle,
     input  wire                            EXE_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     input  wire                            EXE_INT,
@@ -53,6 +56,7 @@ module MEM_reg (
     input  wire                            EXE_SYS,
     input  wire                            EXE_BRK,
     input  wire                            EXE_INE,
+    input  wire                            EXE_IPE,
     input  wire                            EXE_IF_TLBR,
     input  wire                            EXE_TLBR,
     output reg  [                    31:0] MEM_PC,
@@ -70,9 +74,11 @@ module MEM_reg (
     output reg  [                    31:0] MEM_EXE_ALU_result,
     output reg  [     `MEM_READ_WIDTH-1:0] MEM_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] MEM_MEM_write,
+    output reg  [      `MEM_BAR_WIDTH-1:0] MEM_MEM_barrier,
 `ifdef CHIPLAB
     output reg  [                    31:0] MEM_MEM_paddr,
 `endif
+    output reg                             MEM_llbit,
     output reg                             MEM_GPR_write,
     output reg  [                     4:0] MEM_GPR_write_num,
     output reg  [`GPR_WRITE_SRC_WIDTH-1:0] MEM_GPR_write_src,
@@ -81,6 +87,7 @@ module MEM_reg (
     output reg  [                    31:0] MEM_CSR_write_data,
     output reg  [       `TLB_OP_WIDTH-1:0] MEM_TLB_operation,
     output reg                             MEM_ereturn,
+    output reg                             MEM_idle,
     output reg                             MEM_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] MEM_GPR_new,
     output reg                             MEM_INT,
@@ -95,6 +102,7 @@ module MEM_reg (
     output reg                             MEM_SYS,
     output reg                             MEM_BRK,
     output reg                             MEM_INE,
+    output reg                             MEM_IPE,
     output reg                             MEM_IF_TLBR,
     output reg                             MEM_EXE_TLBR
 );
@@ -126,10 +134,12 @@ module MEM_reg (
                 MEM_EXE_ALU_result <= EXE_ALU_result;
                 MEM_MEM_read       <= EXE_MEM_read;
                 MEM_MEM_write      <= EXE_MEM_write;
-                MEM_GPR_write      <= EXE_GPR_write;
+                MEM_MEM_barrier    <= EXE_MEM_barrier;
 `ifdef CHIPLAB
                 MEM_MEM_paddr <= EXE_MEM_paddr;
 `endif
+                MEM_llbit            <= EXE_llbit;
+                MEM_GPR_write        <= EXE_GPR_write;
                 MEM_GPR_write_num    <= EXE_GPR_write_num;
                 MEM_GPR_write_src    <= EXE_GPR_write_src;
                 MEM_CSR_write        <= EXE_CSR_write;
@@ -137,6 +147,7 @@ module MEM_reg (
                 MEM_CSR_write_data   <= EXE_CSR_write_data;
                 MEM_TLB_operation    <= EXE_TLB_operation;
                 MEM_ereturn          <= EXE_ereturn;
+                MEM_idle             <= EXE_idle;
                 MEM_refetch          <= EXE_refetch;
                 MEM_GPR_new          <= EXE_GPR_new;
                 MEM_INT              <= EXE_INT;
@@ -151,6 +162,7 @@ module MEM_reg (
                 MEM_SYS              <= EXE_SYS;
                 MEM_BRK              <= EXE_BRK;
                 MEM_INE              <= EXE_INE;
+                MEM_IPE              <= EXE_IPE;
                 MEM_IF_TLBR          <= EXE_IF_TLBR;
                 MEM_EXE_TLBR         <= EXE_TLBR;
             end

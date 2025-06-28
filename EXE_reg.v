@@ -17,7 +17,6 @@ module EXE_reg (
 `ifdef CHIPLAB
     input  wire [                    31:0] ID_inst,
 `endif
-    input  wire [                    31:0] ID_link,
     input  wire [                    31:0] ID_imm,
     input  wire [                    31:0] ID_rj_data,
     input  wire [                    31:0] ID_rkd_data,
@@ -32,6 +31,7 @@ module EXE_reg (
     input  wire                            ID_mul_div_unsigned,
     input  wire [     `MEM_READ_WIDTH-1:0] ID_MEM_read,
     input  wire [    `MEM_WRITE_WIDTH-1:0] ID_MEM_write,
+    input  wire [      `MEM_BAR_WIDTH-1:0] ID_MEM_barrier,
     input  wire                            ID_GPR_write,
     input  wire [                     4:0] ID_GPR_write_num,
     input  wire [`GPR_WRITE_SRC_WIDTH-1:0] ID_GPR_write_src,
@@ -39,7 +39,10 @@ module EXE_reg (
     input  wire [   `CSR_NUMBER_WIDTH-1:0] ID_CSR_write_number,
     input  wire                            ID_CSR_write_mask,
     input  wire [       `TLB_OP_WIDTH-1:0] ID_TLB_operation,
+    input  wire [ `CACHE_TARGET_WIDTH-1:0] ID_cache_target,
+    input  wire [     `CACHE_OP_WIDTH-1:0] ID_cache_operation,
     input  wire                            ID_ereturn,
+    input  wire                            ID_idle,
     input  wire                            ID_refetch,
     input  wire [      `GPR_NEW_WIDTH-1:0] ID_GPR_new,
     input  wire                            ID_INT,
@@ -49,12 +52,12 @@ module EXE_reg (
     input  wire                            ID_SYS,
     input  wire                            ID_BRK,
     input  wire                            ID_INE,
+    input  wire ID_IPE,
     input  wire                            ID_IF_TLBR,
     output reg  [                    31:0] EXE_PC,
 `ifdef CHIPLAB
     output reg  [                    31:0] EXE_inst,
 `endif
-    output reg  [                    31:0] EXE_link,
     output reg  [                    31:0] EXE_imm,
     output reg  [                    31:0] EXE_rj_data,
     output reg  [                    31:0] EXE_rkd_data,
@@ -69,6 +72,7 @@ module EXE_reg (
     output reg                             EXE_mul_div_unsigned,
     output reg  [     `MEM_READ_WIDTH-1:0] EXE_MEM_read,
     output reg  [    `MEM_WRITE_WIDTH-1:0] EXE_MEM_write,
+    output reg  [      `MEM_BAR_WIDTH-1:0] EXE_MEM_barrier,
     output reg                             EXE_GPR_write,
     output reg  [                     4:0] EXE_GPR_write_num,
     output reg  [`GPR_WRITE_SRC_WIDTH-1:0] EXE_GPR_write_src,
@@ -76,7 +80,10 @@ module EXE_reg (
     output reg  [   `CSR_NUMBER_WIDTH-1:0] EXE_CSR_write_number,
     output reg                             EXE_CSR_write_mask,
     output reg  [       `TLB_OP_WIDTH-1:0] EXE_TLB_operation,
+    output reg  [ `CACHE_TARGET_WIDTH-1:0] EXE_cache_target,
+    output reg  [     `CACHE_OP_WIDTH-1:0] EXE_cache_operation,
     output reg                             EXE_ereturn,
+    output reg                             EXE_idle,
     output reg                             EXE_refetch,
     output reg  [      `GPR_NEW_WIDTH-1:0] EXE_GPR_new,
     output reg                             EXE_INT,
@@ -86,6 +93,7 @@ module EXE_reg (
     output reg                             EXE_SYS,
     output reg                             EXE_BRK,
     output reg                             EXE_INE,
+    output reg                             EXE_IPE,
     output reg                             EXE_IF_TLBR
 );
     assign EXE_ready        = ~EXE_valid | (EXE_done & MEM_ready);
@@ -105,7 +113,6 @@ module EXE_reg (
 `ifdef CHIPLAB
                 EXE_inst <= ID_inst;
 `endif
-                EXE_link     <= ID_link;
                 EXE_imm      <= ID_imm;
                 EXE_rj_data  <= ID_rj_data;
                 EXE_rkd_data <= ID_rkd_data;
@@ -120,6 +127,7 @@ module EXE_reg (
                 EXE_mul_div_unsigned <= ID_mul_div_unsigned;
                 EXE_MEM_read         <= ID_MEM_read;
                 EXE_MEM_write        <= ID_MEM_write;
+                EXE_MEM_barrier      <= ID_MEM_barrier;
                 EXE_GPR_write        <= ID_GPR_write;
                 EXE_GPR_write_num    <= ID_GPR_write_num;
                 EXE_GPR_write_src    <= ID_GPR_write_src;
@@ -127,7 +135,10 @@ module EXE_reg (
                 EXE_CSR_write_number <= ID_CSR_write_number;
                 EXE_CSR_write_mask   <= ID_CSR_write_mask;
                 EXE_TLB_operation    <= ID_TLB_operation;
+                EXE_cache_target     <= ID_cache_target;
+                EXE_cache_operation  <= ID_cache_operation;
                 EXE_ereturn          <= ID_ereturn;
+                EXE_idle             <= ID_idle;
                 EXE_refetch          <= ID_refetch;
                 EXE_GPR_new          <= ID_GPR_new;
                 EXE_INT              <= ID_INT;
@@ -137,6 +148,7 @@ module EXE_reg (
                 EXE_SYS              <= ID_SYS;
                 EXE_BRK              <= ID_BRK;
                 EXE_INE              <= ID_INE;
+                EXE_IPE              <= ID_IPE;
                 EXE_IF_TLBR          <= ID_IF_TLBR;
             end
         end

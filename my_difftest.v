@@ -27,6 +27,7 @@ module my_difftest #(
     input wire [   `MEM_WRITE_WIDTH-1:0] MEM_write,
     input wire [                   31:0] MEM_vaddr,
     input wire [                   31:0] MEM_paddr,
+    input wire                           llbit,
     input wire [                   31:0] rd_data,
     // CSR interface
     input wire [                   31:0] CRMD,
@@ -89,14 +90,16 @@ module my_difftest #(
                      instr[31:10] == 22'b0000000000000000011000 & instr[9:5] == 5'b00000 |
                      instr[31:10] == 22'b0000000000000000011001 & instr[9:5] == 5'b00000;
 
-    wire [7:0] load_valid = {2'b0, 1'b0, MEM_read};
-    wire [7:0] store_valid = {4'b0, 1'b0, MEM_write};
+    wire [7:0] load_valid = {2'b0, MEM_read};
+    wire [7:0] store_valid = {
+        4'b0, MEM_write[`MEM_WRITE_COND] & llbit, MEM_write[`MEM_WRITE_WORD:`MEM_WRITE_BYTE]
+    };
 
     wire [31:0] MEM_write_data = {32{MEM_write[`MEM_WRITE_BYTE]}} &
                                  ({24'b0, rd_data[7:0]} << ({3'b0, MEM_vaddr[1:0]} << 3)) |
                                  {32{MEM_write[`MEM_WRITE_HALF]}} &
                                  ({16'b0, rd_data[15:0]} << ({4'b0, MEM_vaddr[1]} << 4)) |
-                                 {32{MEM_write[`MEM_WRITE_WORD]}} & rd_data;
+                                 {32{|MEM_write[`MEM_WRITE_COND:`MEM_WRITE_WORD]}} & rd_data;
 
     always @(posedge clk) begin
         if (reset) begin
