@@ -10,7 +10,7 @@
 
 ## 分支
 
-main: 仅支持基本指令，可通过 chiplab 框架截至 exp19 实验的 n1 ~ n72 测试
+master: 仅支持基本指令，可通过 chiplab 框架截至 exp19 实验的 n1 ~ n72 测试
 
 chiplab: 支持全部指令，但无 cache 集成，可通过 chiplab 框架所有实验的 n1 ~ n81 所有测试
 
@@ -21,4 +21,5 @@ cache: WIP
 ## 许可
 
 木兰宽松许可证, 第2版
+
 
